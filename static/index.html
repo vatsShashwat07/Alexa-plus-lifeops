@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alexa+ LifeOps — Ambient OS</title>
+  <meta name="description"
+    content="Alexa+ LifeOps Autonomous Care Assistant — Next-Gen Echo Show Ambient OS with MCP Streamable HTTP Inspector." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ──────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --cyan: #00CAFF;
+      --cyan-dim: #0099CC;
+      --violet: #8B5CF6;
+      --violet-dim: #6D28D9;
+      --rose: #F43F5E;
+      --emerald: #22C55E;
+      --amber: #F59E0B;
+      --void: #070b14;
+      --surface: #0c1220;
+      --card: rgba(15, 23, 42, 0.60);
+      --card-border: rgba(51, 65, 85, 0.45);
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--void);
+      color: var(--text-primary);
+      overflow: hidden;
+      height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.3);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.5);
+    }
+
+    /* ── Ambient Background ────────────────────────────── */
+    .ambient-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 10%, rgba(0, 202, 255, 0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(139, 92, 246, 0.05) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 30% at 50% 50%, rgba(0, 202, 255, 0.02) 0%, transparent 50%),
+        linear-gradient(180deg, #070b14 0%, #0a0f1e 40%, #070b14 100%);
+    }
+
+    /* ── Glass Panel ───────────────────────────────────── */
+    .glass {
+      background: var(--card);
+      backdrop-filter: blur(20px) saturate(1.2);
+      -webkit-backdrop-filter: blur(20px) saturate(1.2);
+      border: 1px solid var(--card-border);
+      border-radius: 1.25rem;
+    }
+
+    .glass-subtle {
+      background: rgba(15, 23, 42, 0.40);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.30);
+      border-radius: 1rem;
+    }
+
+    /* ── Layout ────────────────────────────────────────── */
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.625rem 1.5rem;
+      background: rgba(7, 11, 20, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .main-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .left-panel {
+      display: flex;
+      flex-direction: column;
+      width: 65%;
+      overflow: hidden;
+    }
+
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      width: 35%;
+      border-left: 1px solid rgba(51, 65, 85, 0.25);
+      background: rgba(7, 11, 20, 0.50);
+    }
+
+    .separator-glow {
+      position: absolute;
+      left: 65%;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: linear-gradient(180deg, transparent 0%, rgba(0, 202, 255, 0.12) 30%, rgba(139, 92, 246, 0.08) 70%, transparent 100%);
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* ── Orb Animation System ──────────────────────────── */
+    .orb-container {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      margin: 0 auto;
+    }
+
+    .orb-aura {
+      position: absolute;
+      inset: -20px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(0, 202, 255, 0.12) 0%, transparent 70%);
+      animation: orb-aura-pulse 3s ease-in-out infinite;
+    }
+
+    .orb-ring-outer {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: rgba(0, 202, 255, 0.5);
+      border-right-color: rgba(139, 92, 246, 0.3);
+      animation: orb-spin 4s linear infinite;
+    }
+
+    .orb-ring-mid {
+      position: absolute;
+      inset: 15px;
+      border-radius: 50%;
+      border: 1.5px solid transparent;
+      border-bottom-color: rgba(139, 92, 246, 0.5);
+      border-left-color: rgba(0, 202, 255, 0.3);
+      animation: orb-spin 3s linear infinite reverse;
+    }
+
+    .orb-core {
+      position: absolute;
+      inset: 30px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, rgba(0, 202, 255, 0.25) 0%, rgba(139, 92, 246, 0.10) 50%, rgba(7, 11, 20, 0.8) 100%);
+      box-shadow: 0 0 30px rgba(0, 202, 255, 0.15), inset 0 0 20px rgba(0, 202, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .orb-core svg {
+      width: 32px;
+      height: 32px;
+      color: var(--cyan);
+      filter: drop-shadow(0 0 8px rgba(0, 202, 255, 0.5));
+    }
+
+    /* Soundwave bars inside orb — visible when speaking */
+    .soundwave-bars {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 24px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .soundwave-bars.active {
+      opacity: 1;
+    }
+
+    .soundwave-bar {
+      width: 3px;
+      background: var(--cyan);
+      border-radius: 2px;
+      animation: soundwave 0.8s ease-in-out infinite;
+    }
+
+    .soundwave-bar:nth-child(1) { height: 8px; animation-delay: 0s; }
+    .soundwave-bar:nth-child(2) { height: 16px; animation-delay: 0.1s; }
+    .soundwave-bar:nth-child(3) { height: 24px; animation-delay: 0.2s; }
+    .soundwave-bar:nth-child(4) { height: 16px; animation-delay: 0.3s; }
+    .soundwave-bar:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+
+    .orb-container.speaking .orb-aura {
+      animation-duration: 1s;
+    }
+
+    .orb-container.speaking .orb-ring-outer {
+      animation-duration: 1.5s;
+      border-top-color: rgba(0, 202, 255, 0.8);
+    }
+
+    .orb-container.speaking .orb-ring-mid {
+      animation-duration: 1s;
+      border-bottom-color: rgba(139, 92, 246, 0.8);
+    }
+
+    .orb-container.speaking .orb-core {
+      box-shadow: 0 0 50px rgba(0, 202, 255, 0.3), inset 0 0 30px rgba(0, 202, 255, 0.15);
+    }
+
+    /* ── ECG Canvas ────────────────────────────────────── */
+    .ecg-container {
+      position: relative;
+      width: 100%;
+      height: 80px;
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: rgba(7, 11, 20, 0.6);
+      border: 1px solid rgba(34, 197, 94, 0.15);
+    }
+
+    .ecg-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Stat Widgets ──────────────────────────────────── */
+    .stat-widget {
+      text-align: center;
+      padding: 0.875rem 0.75rem;
+      border-radius: 1rem;
+      background: rgba(15, 23, 42, 0.50);
+      border: 1px solid rgba(51, 65, 85, 0.30);
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-widget:hover {
+      border-color: rgba(0, 202, 255, 0.25);
+      box-shadow: 0 0 20px rgba(0, 202, 255, 0.05);
+    }
+
+    .stat-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-value {
+      font-size: 1.375rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .stat-unit {
+      font-size: 0.65rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    /* ── Risk Badges ───────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge-normal {
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.25);
+    }
+
+    .badge-warning {
+      background: rgba(250, 204, 21, 0.12);
+      color: #facc15;
+      border: 1px solid rgba(250, 204, 21, 0.25);
+    }
+
+    .badge-critical {
+      background: rgba(244, 63, 94, 0.12);
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.25);
+      animation: badge-pulse-critical 2s ease-in-out infinite;
+    }
+
+    .badge-mcp {
+      background: rgba(34, 197, 94, 0.08);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.20);
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+    }
+
+    .badge-engine {
+      font-family: var(--font-mono);
+      font-size: 0.55rem;
+      padding: 0.15rem 0.5rem;
+    }
+
+    /* ── Cards ──────────────────────────────────────────── */
+    .care-card {
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 202, 255, 0.10);
+      border-radius: 1.25rem;
+      padding: 1.25rem;
+      animation: card-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 25px rgba(0, 202, 255, 0.03);
+    }
+
+    .emergency-card {
+      background: rgba(30, 10, 15, 0.60);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(244, 63, 94, 0.35);
+      border-radius: 1.25rem;
+      padding: 1.25rem;
+      animation: card-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1), emergency-border-pulse 2.5s ease-in-out infinite;
+      box-shadow: 0 0 30px rgba(244, 63, 94, 0.08);
+    }
+
+    /* ── Speech Bubble ─────────────────────────────────── */
+    .alexa-bubble {
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 202, 255, 0.12);
+      border-radius: 1.25rem 1.25rem 1.25rem 0.375rem;
+      box-shadow: 0 4px 30px rgba(0, 202, 255, 0.04);
+    }
+
+    .user-bubble {
+      background: rgba(0, 202, 255, 0.06);
+      border: 1px solid rgba(0, 202, 255, 0.15);
+      border-radius: 1.25rem 1.25rem 0.375rem 1.25rem;
+    }
+
+    /* ── Input Bar ─────────────────────────────────────── */
+    .input-capsule {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem;
+      background: rgba(15, 23, 42, 0.60);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(51, 65, 85, 0.40);
+      border-radius: 1rem;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .input-capsule:focus-within {
+      border-color: rgba(0, 202, 255, 0.40);
+      box-shadow: 0 0 0 3px rgba(0, 202, 255, 0.08), 0 0 30px rgba(0, 202, 255, 0.06);
+    }
+
+    .input-capsule input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .input-capsule input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .btn-send {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.375rem;
+      height: 2.5rem;
+      padding: 0 1.125rem;
+      border: none;
+      border-radius: 0.75rem;
+      background: linear-gradient(135deg, var(--cyan) 0%, #0088CC 100%);
+      color: white;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-send:hover {
+      background: linear-gradient(135deg, #33D4FF 0%, #00AAEE 100%);
+      box-shadow: 0 4px 25px rgba(0, 202, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-send:active {
+      transform: translateY(0);
+    }
+
+    .btn-send:disabled {
+      background: rgba(51, 65, 85, 0.5);
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .btn-mic {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.5rem;
+      height: 2.5rem;
+      border: 1px solid rgba(51, 65, 85, 0.40);
+      border-radius: 0.75rem;
+      background: rgba(15, 23, 42, 0.50);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      flex-shrink: 0;
+      position: relative;
+      overflow: visible;
+    }
+
+    .btn-mic:hover {
+      color: var(--cyan);
+      border-color: rgba(0, 202, 255, 0.30);
+    }
+
+    .btn-mic.active {
+      color: var(--cyan);
+      border-color: var(--cyan);
+      background: rgba(0, 202, 255, 0.10);
+      box-shadow: 0 0 20px rgba(0, 202, 255, 0.20);
+    }
+
+    .btn-mic.active::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 1rem;
+      border: 2px solid rgba(0, 202, 255, 0.4);
+      animation: radar-ring 1.5s ease-out infinite;
+    }
+
+    /* ── Prompt Chips ──────────────────────────────────── */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 0.875rem;
+      background: rgba(15, 23, 42, 0.45);
+      border: 1px solid rgba(51, 65, 85, 0.40);
+      border-radius: 9999px;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      white-space: nowrap;
+    }
+
+    .chip:hover {
+      background: rgba(0, 202, 255, 0.08);
+      border-color: rgba(0, 202, 255, 0.35);
+      color: var(--cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 202, 255, 0.10);
+    }
+
+    /* ── Inspector Console ─────────────────────────────── */
+    .inspector-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.625rem 1rem;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.25);
+    }
+
+    .log-entry {
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      transition: background 0.15s ease;
+      animation: fade-in 0.3s ease-out;
+    }
+
+    .log-entry:hover {
+      background: rgba(0, 202, 255, 0.03);
+    }
+
+    .log-tag {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      font-weight: 600;
+      padding: 0.1rem 0.375rem;
+      border-radius: 0.25rem;
+      letter-spacing: 0.03em;
+    }
+
+    .tag-mcp { background: rgba(0, 202, 255, 0.10); color: #67e8f9; }
+    .tag-bedrock { background: rgba(139, 92, 246, 0.10); color: #a78bfa; }
+    .tag-tool { background: rgba(34, 197, 94, 0.10); color: #4ade80; }
+    .tag-tts { background: rgba(250, 204, 21, 0.10); color: #fde047; }
+    .tag-error { background: rgba(244, 63, 94, 0.10); color: #fb7185; }
+    .tag-system { background: rgba(100, 116, 139, 0.10); color: #94a3b8; }
+    .tag-send { background: rgba(251, 146, 60, 0.10); color: #fb923c; }
+
+    /* ── Typing Dots ───────────────────────────────────── */
+    .typing-dots {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 1rem 1.25rem;
+    }
+
+    .typing-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      animation: typing-bounce 1.4s ease-in-out infinite;
+    }
+
+    .typing-dot:nth-child(2) { animation-delay: 0.15s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.30s; }
+
+    /* ── Keyframe Animations ───────────────────────────── */
+    @keyframes orb-aura-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.15); opacity: 0.25; }
+    }
+
+    @keyframes orb-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes soundwave {
+      0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    @keyframes radar-ring {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+
+    @keyframes typing-bounce {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-6px); opacity: 1; }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes card-enter {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes badge-pulse-critical {
+      0%, 100% { box-shadow: 0 0 8px rgba(244, 63, 94, 0.15); }
+      50% { box-shadow: 0 0 20px rgba(244, 63, 94, 0.30); }
+    }
+
+    @keyframes emergency-border-pulse {
+      0%, 100% { border-color: rgba(244, 63, 94, 0.35); box-shadow: 0 0 30px rgba(244, 63, 94, 0.06); }
+      50% { border-color: rgba(244, 63, 94, 0.60); box-shadow: 0 0 50px rgba(244, 63, 94, 0.12); }
+    }
+
+    @keyframes beacon-dot {
+      0%, 100% { box-shadow: 0 0 4px rgba(34, 197, 94, 0.6); }
+      50% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.3); }
+    }
+
+    @keyframes glow-text {
+      0%, 100% { text-shadow: 0 0 8px rgba(0, 202, 255, 0.3); }
+      50% { text-shadow: 0 0 16px rgba(0, 202, 255, 0.15); }
+    }
+
+    /* ── Utilities ─────────────────────────────────────── */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .justify-end { justify-content: flex-end; }
+    .flex-1 { flex: 1; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-shrink-0 { flex-shrink: 0; }
+    .gap-1 { gap: 0.25rem; }
+    .gap-1\.5 { gap: 0.375rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-2\.5 { gap: 0.625rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-5 { gap: 1.25rem; }
+    .grid { display: grid; }
+    .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+    .w-full { width: 100%; }
+    .min-w-0 { min-width: 0; }
+    .hidden { display: none !important; }
+    .overflow-y-auto { overflow-y: auto; }
+    .overflow-hidden { overflow: hidden; }
+    .overflow-x-auto { overflow-x: auto; }
+    .relative { position: relative; }
+    .absolute { position: absolute; }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .whitespace-pre-wrap { white-space: pre-wrap; }
+    .break-all { word-break: break-all; }
+    .select-none { user-select: none; }
+    .cursor-pointer { cursor: pointer; }
+    .text-center { text-align: center; }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .list-disc { list-style-type: disc; }
+    .list-inside { list-style-position: inside; }
+    .space-y-1 > * + * { margin-top: 0.25rem; }
+    .space-y-1\.5 > * + * { margin-top: 0.375rem; }
+    .space-y-2 > * + * { margin-top: 0.5rem; }
+    .space-y-2\.5 > * + * { margin-top: 0.625rem; }
+    .space-y-3 > * + * { margin-top: 0.75rem; }
+    .space-y-4 > * + * { margin-top: 1rem; }
+    .space-y-5 > * + * { margin-top: 1.25rem; }
+
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-1\.5 { margin-bottom: 0.375rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-5 { margin-bottom: 1.25rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .mt-0\.5 { margin-top: 0.125rem; }
+    .mt-1 { margin-top: 0.25rem; }
+    .mt-1\.5 { margin-top: 0.375rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-3 { margin-top: 0.75rem; }
+    .ml-1 { margin-left: 0.25rem; }
+    .mr-1\.5 { margin-right: 0.375rem; }
+
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+    .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .py-5 { padding-top: 1.25rem; padding-bottom: 1.25rem; }
+    .p-2 { padding: 0.5rem; }
+    .p-3 { padding: 0.75rem; }
+    .p-4 { padding: 1rem; }
+    .p-5 { padding: 1.25rem; }
+    .pt-3 { padding-top: 0.75rem; }
+
+    .rounded { border-radius: 0.25rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-full { border-radius: 9999px; }
+
+    .border-t { border-top: 1px solid rgba(51, 65, 85, 0.30); }
+    .border-b { border-bottom: 1px solid rgba(51, 65, 85, 0.30); }
+
+    .text-xs { font-size: 0.75rem; line-height: 1rem; }
+    .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+    .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+    .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .font-light { font-weight: 300; }
+    .font-normal { font-weight: 400; }
+    .font-medium { font-weight: 500; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .font-mono { font-family: var(--font-mono); }
+    .tracking-wide { letter-spacing: 0.025em; }
+    .tracking-wider { letter-spacing: 0.05em; }
+    .tracking-widest { letter-spacing: 0.1em; }
+    .uppercase { text-transform: uppercase; }
+    .leading-relaxed { line-height: 1.625; }
+
+    .text-cyan { color: var(--cyan); }
+    .text-violet { color: var(--violet); }
+    .text-rose { color: var(--rose); }
+    .text-emerald { color: var(--emerald); }
+    .text-amber { color: var(--amber); }
+    .text-primary { color: var(--text-primary); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-muted { color: var(--text-muted); }
+
+    .max-w-2xl { max-width: 42rem; }
+    .max-w-lg { max-width: 32rem; }
+    .max-h-48 { max-height: 12rem; }
+
+    @media (max-width: 1024px) {
+      .left-panel { width: 100%; }
+      .right-panel { display: none; }
+      .separator-glow { display: none; }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Ambient Background -->
+  <div class="ambient-canvas"></div>
+
+  <!-- ═══ App Shell ═══ -->
+  <div class="app-shell">
+
+    <!-- ── Header Bar ──────────────────────────────────── -->
+    <header class="header-bar">
+      <div class="flex items-center gap-3">
+        <div class="relative">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px rgba(0,202,255,0.6);animation:beacon-dot 2s ease-in-out infinite"></div>
+        </div>
+        <h1 style="font-size:0.8rem;font-weight:700;letter-spacing:0.08em;color:var(--text-secondary)">
+          AMAZON ALEXA<span style="color:var(--cyan);font-weight:800">+</span> <span style="font-weight:400;color:var(--text-muted)">AMBIENT OS</span>
+        </h1>
+        <span class="badge badge-mcp" style="display:none" id="mcp-badge-inline">
+          <span style="width:5px;height:5px;border-radius:50%;background:#4ade80;display:inline-block;animation:beacon-dot 2s ease-in-out infinite"></span>
+          MCP STREAMABLE HTTP ACTIVE
+        </span>
+      </div>
+      <div class="flex items-center gap-4" style="font-size:0.7rem;color:var(--text-muted)">
+        <span id="conn-status" class="flex items-center gap-1.5">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--emerald);animation:beacon-dot 2s ease-in-out infinite"></span>
+          Connected
+        </span>
+        <time id="header-clock" class="font-mono tabular-nums" style="color:var(--text-secondary);font-size:0.7rem"></time>
+      </div>
+    </header>
+
+    <!-- ── Main Body ───────────────────────────────────── -->
+    <main class="main-body">
+      <div class="separator-glow"></div>
+
+      <!-- ═══ LEFT: Echo Show Display ═══ -->
+      <section class="left-panel">
+
+        <!-- Status Bar -->
+        <div class="flex items-center justify-between px-6 py-2 border-b" style="background:rgba(7,11,20,0.40)">
+          <div class="flex items-center gap-2">
+            <svg style="width:16px;height:16px;color:var(--cyan);opacity:0.7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </svg>
+            <span style="font-size:0.75rem;font-weight:500;color:var(--text-secondary)">Alexa+ LifeOps Display</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span id="engine-badge" class="badge badge-engine" style="background:rgba(100,116,139,0.10);color:var(--text-muted);border:1px solid rgba(51,65,85,0.30)">
+              STANDBY
+            </span>
+            <time id="status-clock" class="font-mono tabular-nums" style="font-size:0.6rem;color:var(--text-muted)"></time>
+          </div>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5" id="display-content">
+
+          <!-- Welcome State -->
+          <div id="welcome-state" class="flex flex-col items-center justify-center" style="padding:2.5rem 0;animation:fade-in 0.5s ease-out">
+
+            <!-- Orb -->
+            <div class="orb-container mb-6" id="alexa-orb">
+              <div class="orb-aura"></div>
+              <div class="orb-ring-outer"></div>
+              <div class="orb-ring-mid"></div>
+              <div class="orb-core">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" id="orb-icon">
+                  <path d="M12 18.5A6.5 6.5 0 0 0 18.5 12v-1a6.5 6.5 0 0 0-13 0v1A6.5 6.5 0 0 0 12 18.5Z" />
+                  <path d="M12 18.5V21m-4-1h8" />
+                  <path d="M8.5 7.5S9.5 6 12 6s3.5 1.5 3.5 1.5" />
+                </svg>
+                <div class="soundwave-bars" id="soundwave-bars">
+                  <div class="soundwave-bar"></div>
+                  <div class="soundwave-bar"></div>
+                  <div class="soundwave-bar"></div>
+                  <div class="soundwave-bar"></div>
+                  <div class="soundwave-bar"></div>
+                </div>
+              </div>
+            </div>
+
+            <h2 style="font-size:1.625rem;font-weight:300;color:var(--text-primary);margin-bottom:0.5rem;animation:glow-text 4s ease-in-out infinite">
+              Good <span id="greeting-time"></span>
+            </h2>
+            <p style="font-size:0.8rem;color:var(--text-muted);max-width:26rem;text-align:center;line-height:1.7">
+              I'm your Alexa+ LifeOps Care Assistant. Ask me to check vitals,
+              review medications, schedule reminders, or get emergency help.
+            </p>
+          </div>
+
+          <!-- Speech Container (hidden initially) -->
+          <div id="speech-container" class="hidden">
+
+            <!-- Typing indicator -->
+            <div id="typing-indicator" class="hidden alexa-bubble" style="padding:0;max-width:42rem;margin-bottom:1rem">
+              <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+              </div>
+            </div>
+
+            <!-- User echo -->
+            <div id="user-echo" class="hidden flex justify-end mb-4">
+              <div class="user-bubble px-5 py-3 max-w-lg" style="animation:slide-up 0.4s cubic-bezier(0.16,1,0.3,1)">
+                <p id="user-echo-text" style="font-size:0.85rem;color:var(--text-secondary)"></p>
+              </div>
+            </div>
+
+            <!-- Alexa speech -->
+            <div id="alexa-speech-card" class="hidden alexa-bubble px-6 py-5 max-w-2xl" style="animation:card-enter 0.6s cubic-bezier(0.16,1,0.3,1)">
+              <div class="flex items-start gap-3 mb-3">
+                <div style="width:2rem;height:2rem;border-radius:50%;background:rgba(0,202,255,0.10);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">
+                  <svg style="width:14px;height:14px;color:var(--cyan)" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                  </svg>
+                </div>
+                <div class="flex-1">
+                  <span style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(0,202,255,0.55);display:block;margin-bottom:0.25rem">Alexa+ Response</span>
+                  <p id="alexa-speech-text" style="font-size:1.15rem;font-weight:300;line-height:1.65;color:var(--text-primary)"></p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dynamic Cards -->
+          <div id="dynamic-cards" class="space-y-4"></div>
+
+        </div>
+
+        <!-- Quick Prompt Chips + Input -->
+        <div class="px-6 py-3 border-t" style="background:rgba(7,11,20,0.55);backdrop-filter:blur(12px)">
+
+          <!-- Chips -->
+          <div class="flex flex-wrap gap-2 mb-3">
+            <button class="chip" onclick="sendQuickPrompt('My blood pressure is 145/95 and pulse is 108')">
+              🩺 Check BP: 145/95, pulse 108
+            </button>
+            <button class="chip" onclick="sendQuickPrompt('Schedule Metformin reminder at 8 PM tonight')">
+              ⏰ Schedule Metformin at 8 PM
+            </button>
+            <button class="chip" onclick="sendQuickPrompt('I am having severe chest pain and shortness of breath')">
+              🚨 Emergency: Severe chest pain &amp; SOB
+            </button>
+          </div>
+
+          <!-- Input Capsule -->
+          <div class="input-capsule">
+            <input id="prompt-input" type="text" placeholder="Speak or type your health query…" autocomplete="off"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); sendPrompt()}" />
+            <button id="voice-btn" class="btn-mic" onclick="toggleVoice()" title="Toggle Voice Input">
+              <svg style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 1a4 4 0 0 0-4 4v7a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4m-4 0h8" />
+              </svg>
+            </button>
+            <button id="send-btn" class="btn-send" onclick="sendPrompt()">
+              <span>Send</span>
+              <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ RIGHT: MCP Inspector Console ═══ -->
+      <aside class="right-panel">
+
+        <!-- Inspector Header -->
+        <div class="inspector-header">
+          <div class="flex items-center gap-2">
+            <svg style="width:14px;height:14px;color:var(--cyan);opacity:0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2" />
+              <path d="M8 21h8M12 17v4" />
+            </svg>
+            <h2 style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)">
+              MCP Streamable HTTP Inspector
+            </h2>
+          </div>
+          <button onclick="clearInspector()"
+            style="font-size:0.55rem;padding:0.15rem 0.5rem;border-radius:0.25rem;background:rgba(51,65,85,0.30);color:var(--text-muted);border:1px solid rgba(51,65,85,0.30);cursor:pointer;font-family:var(--font-mono);transition:all 0.15s ease"
+            onmouseover="this.style.color='var(--text-secondary)';this.style.background='rgba(51,65,85,0.50)'"
+            onmouseout="this.style.color='var(--text-muted)';this.style.background='rgba(51,65,85,0.30)'"
+            title="Clear Logs">
+            CLEAR
+          </button>
+        </div>
+
+        <!-- Active Endpoint -->
+        <div class="flex items-center gap-2 px-4 py-1.5 border-b" style="background:rgba(7,11,20,0.30)">
+          <span style="width:5px;height:5px;border-radius:50%;background:var(--emerald);animation:beacon-dot 2.5s ease-in-out infinite"></span>
+          <span class="font-mono" style="font-size:0.55rem;color:var(--text-muted)">ENDPOINT</span>
+          <code class="font-mono" style="font-size:0.55rem;color:rgba(52,211,153,0.75);background:rgba(16,185,129,0.05);padding:0.1rem 0.375rem;border-radius:0.25rem">http://localhost:8000</code>
+        </div>
+
+        <!-- Log Console -->
+        <div id="inspector-log" class="flex-1 overflow-y-auto px-3 py-2 space-y-1 font-mono" style="font-size:0.7rem"></div>
+
+        <!-- Inspector Footer -->
+        <div class="flex items-center justify-between px-4 py-2 border-t" style="font-size:0.55rem;color:var(--text-muted)">
+          <span>Protocol: <span style="color:var(--text-secondary)">streamable-http</span></span>
+          <span id="log-count">0 events</span>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       JAVASCRIPT
+       ═══════════════════════════════════════════════════════ -->
+  <script>
+    // ── State ──────────────────────────────────────────────
+    let isProcessing = false;
+    let isVoiceActive = false;
+    let isSpeaking = false;
+    let recognition = null;
+    let logEventCount = 0;
+
+    // ── DOM References ─────────────────────────────────────
+    const $ = (sel) => document.querySelector(sel);
+    const promptInput = $('#prompt-input');
+    const sendBtn = $('#send-btn');
+    const voiceBtn = $('#voice-btn');
+    const welcomeState = $('#welcome-state');
+    const speechContainer = $('#speech-container');
+    const typingIndicator = $('#typing-indicator');
+    const userEcho = $('#user-echo');
+    const userEchoText = $('#user-echo-text');
+    const alexaSpeechCard = $('#alexa-speech-card');
+    const alexaSpeechText = $('#alexa-speech-text');
+    const dynamicCards = $('#dynamic-cards');
+    const inspectorLog = $('#inspector-log');
+    const engineBadge = $('#engine-badge');
+    const headerClock = $('#header-clock');
+    const statusClock = $('#status-clock');
+    const greetingTime = $('#greeting-time');
+    const logCount = $('#log-count');
+    const alexaOrb = $('#alexa-orb');
+    const orbIcon = $('#orb-icon');
+    const soundwaveBars = $('#soundwave-bars');
+    const mcpBadgeInline = $('#mcp-badge-inline');
+
+    // ── Utilities ──────────────────────────────────────────
+    function now() {
+      return new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+
+    function nowISO() {
+      return new Date().toISOString();
+    }
+
+    function getGreeting() {
+      const h = new Date().getHours();
+      if (h < 12) return 'Morning';
+      if (h < 17) return 'Afternoon';
+      return 'Evening';
+    }
+
+    function updateClocks() {
+      const t = now();
+      headerClock.textContent = t;
+      statusClock.textContent = t;
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
+    }
+
+    // ── Orb State Management ──────────────────────────────
+    function setOrbSpeaking(active) {
+      isSpeaking = active;
+      if (active) {
+        alexaOrb.classList.add('speaking');
+        orbIcon.style.display = 'none';
+        soundwaveBars.classList.add('active');
+        soundwaveBars.style.display = 'flex';
+      } else {
+        alexaOrb.classList.remove('speaking');
+        orbIcon.style.display = '';
+        soundwaveBars.classList.remove('active');
+        soundwaveBars.style.display = 'none';
+      }
+    }
+
+    // ── ECG Heart-Rate Monitor ────────────────────────────
+    let ecgCanvas = null;
+    let ecgCtx = null;
+    let ecgX = 0;
+    let ecgAnimId = null;
+    const ECG_SPEED = 2;
+
+    // Standard sinus rhythm pattern (PQRST waveform)
+    const ECG_PATTERN = [
+      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      0,0,1,2,3,2,1,0,0,0,                     // P wave
+      0,0,0,0,0,                                 // PR segment
+      0,-2,-4,-2,0,6,25,38,25,6,0,-5,-12,-8,-3,0, // QRS complex
+      0,0,0,0,0,0,                               // ST segment
+      0,1,3,5,7,8,8,7,5,3,1,0,                 // T wave
+      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  // baseline
+    ];
+
+    function initECG(canvasEl) {
+      ecgCanvas = canvasEl;
+      ecgCtx = ecgCanvas.getContext('2d');
+      resizeECG();
+      ecgX = 0;
+      // Fill with baseline
+      ecgCtx.fillStyle = 'rgba(7, 11, 20, 0.95)';
+      ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+      drawECGGrid();
+      animateECG();
+    }
+
+    function resizeECG() {
+      if (!ecgCanvas) return;
+      const rect = ecgCanvas.parentElement.getBoundingClientRect();
+      ecgCanvas.width = rect.width;
+      ecgCanvas.height = rect.height;
+    }
+
+    function drawECGGrid() {
+      if (!ecgCtx) return;
+      ecgCtx.strokeStyle = 'rgba(0, 202, 255, 0.04)';
+      ecgCtx.lineWidth = 0.5;
+      const step = 20;
+      for (let x = 0; x < ecgCanvas.width; x += step) {
+        ecgCtx.beginPath();
+        ecgCtx.moveTo(x, 0);
+        ecgCtx.lineTo(x, ecgCanvas.height);
+        ecgCtx.stroke();
+      }
+      for (let y = 0; y < ecgCanvas.height; y += step) {
+        ecgCtx.beginPath();
+        ecgCtx.moveTo(0, y);
+        ecgCtx.lineTo(ecgCanvas.width, y);
+        ecgCtx.stroke();
+      }
+    }
+
+    let ecgPatternIndex = 0;
+
+    function animateECG() {
+      if (!ecgCtx) return;
+      const w = ecgCanvas.width;
+      const h = ecgCanvas.height;
+      const midY = h * 0.55;
+
+      // Clear column ahead
+      ecgCtx.fillStyle = 'rgba(7, 11, 20, 0.95)';
+      ecgCtx.fillRect(ecgX, 0, ECG_SPEED + 6, h);
+
+      // Redraw grid in cleared area
+      ecgCtx.strokeStyle = 'rgba(0, 202, 255, 0.04)';
+      ecgCtx.lineWidth = 0.5;
+      const step = 20;
+      for (let gx = Math.floor(ecgX / step) * step; gx <= ecgX + ECG_SPEED + 6; gx += step) {
+        ecgCtx.beginPath();
+        ecgCtx.moveTo(gx, 0);
+        ecgCtx.lineTo(gx, h);
+        ecgCtx.stroke();
+      }
+      for (let gy = 0; gy < h; gy += step) {
+        ecgCtx.beginPath();
+        ecgCtx.moveTo(ecgX, gy);
+        ecgCtx.lineTo(ecgX + ECG_SPEED + 6, gy);
+        ecgCtx.stroke();
+      }
+
+      // Draw ECG point
+      const val = ECG_PATTERN[ecgPatternIndex % ECG_PATTERN.length];
+      const y = midY - val * (h / 80);
+      const prevVal = ECG_PATTERN[(ecgPatternIndex - 1 + ECG_PATTERN.length) % ECG_PATTERN.length];
+      const prevY = midY - prevVal * (h / 80);
+      const prevX = ecgX - ECG_SPEED;
+
+      // Glow effect
+      ecgCtx.shadowColor = 'rgba(0, 255, 180, 0.6)';
+      ecgCtx.shadowBlur = 6;
+      ecgCtx.strokeStyle = '#00FFB4';
+      ecgCtx.lineWidth = 1.5;
+      ecgCtx.beginPath();
+      ecgCtx.moveTo(prevX < 0 ? 0 : prevX, prevY);
+      ecgCtx.lineTo(ecgX, y);
+      ecgCtx.stroke();
+      ecgCtx.shadowBlur = 0;
+
+      // Leading dot
+      ecgCtx.fillStyle = '#00FFB4';
+      ecgCtx.shadowColor = 'rgba(0, 255, 180, 0.8)';
+      ecgCtx.shadowBlur = 8;
+      ecgCtx.beginPath();
+      ecgCtx.arc(ecgX, y, 2, 0, Math.PI * 2);
+      ecgCtx.fill();
+      ecgCtx.shadowBlur = 0;
+
+      ecgX += ECG_SPEED;
+      ecgPatternIndex++;
+      if (ecgX >= w) {
+        ecgX = 0;
+      }
+
+      ecgAnimId = requestAnimationFrame(animateECG);
+    }
+
+    // ── Inspector Logging ──────────────────────────────────
+    function log(type, title, detail = '', payload = null) {
+      logEventCount++;
+      logCount.textContent = `${logEventCount} event${logEventCount !== 1 ? 's' : ''}`;
+
+      const tagMap = {
+        info: { tag: 'MCP-STREAM', cls: 'tag-mcp' },
+        success: { tag: 'BEDROCK-AI', cls: 'tag-bedrock' },
+        send: { tag: 'USER-INPUT', cls: 'tag-send' },
+        tool: { tag: 'TOOL-DISPATCH', cls: 'tag-tool' },
+        tts: { tag: 'TTS-ENGINE', cls: 'tag-tts' },
+        error: { tag: 'ERROR', cls: 'tag-error' },
+        system: { tag: 'SYSTEM', cls: 'tag-system' },
+      };
+      const t = tagMap[type] || tagMap.system;
+
+      let payloadHtml = '';
+      if (payload) {
+        const formatted = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+        payloadHtml = `
+          <details style="margin-top:0.375rem">
+            <summary class="select-none cursor-pointer" style="font-size:0.6rem;color:var(--text-muted);transition:color 0.15s" onmouseover="this.style.color='var(--text-secondary)'" onmouseout="this.style.color='var(--text-muted)'">
+              ▸ payload
+            </summary>
+            <pre style="margin-top:0.25rem;font-size:0.6rem;color:var(--text-muted);line-height:1.5;white-space:pre-wrap;word-break:break-all;max-height:12rem;overflow-y:auto;background:rgba(7,11,20,0.5);border-radius:0.375rem;padding:0.5rem">${escapeHtml(formatted)}</pre>
+          </details>`;
+      }
+
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.innerHTML = `
+        <div class="flex items-start gap-2">
+          <span class="log-tag ${t.cls}" style="flex-shrink:0;margin-top:1px">${t.tag}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between gap-2">
+              <span class="truncate" style="font-size:0.65rem;font-weight:500;color:var(--text-secondary)">${escapeHtml(title)}</span>
+              <span class="tabular-nums flex-shrink-0" style="font-size:0.5rem;color:var(--text-muted)">${now()}</span>
+            </div>
+            ${detail ? `<p style="font-size:0.6rem;color:var(--text-muted);margin-top:0.125rem;line-height:1.5">${escapeHtml(detail)}</p>` : ''}
+            ${payloadHtml}
+          </div>
+        </div>`;
+
+      inspectorLog.appendChild(entry);
+      inspectorLog.scrollTop = inspectorLog.scrollHeight;
+    }
+
+    // ── Dynamic Card Renderers ─────────────────────────────
+
+    function renderVitalsCard(result) {
+      const risk = result.risk_level || 'Normal';
+      const badgeCls = risk === 'Critical' ? 'badge-critical' : risk === 'Warning' ? 'badge-warning' : 'badge-normal';
+      const riskIcon = risk === 'Critical' ? '🔴' : risk === 'Warning' ? '🟡' : '🟢';
+      const guidance = (result.clinical_guidance || []).map(g => `<li style="color:var(--text-secondary)">${escapeHtml(g)}</li>`).join('');
+
+      // Color code stat values
+      const hrColor = (result.heart_rate_bpm > 100 || result.heart_rate_bpm < 60) ? 'var(--rose)' : 'var(--emerald)';
+      const bpColor = risk === 'Critical' ? 'var(--rose)' : risk === 'Warning' ? 'var(--amber)' : 'var(--emerald)';
+      const spoColor = (result.sp_o2_pct < 95) ? 'var(--amber)' : 'var(--emerald)';
+
+      return `
+        <div class="care-card">
+          <!-- ECG Monitor -->
+          <div class="ecg-container mb-4">
+            <canvas id="ecg-canvas"></canvas>
+          </div>
+
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="flex items-center gap-2" style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">
+              <svg style="width:16px;height:16px;color:var(--rose)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z"/>
+              </svg>
+              Vitals Analysis
+            </h3>
+            <span class="badge ${badgeCls}">${riskIcon} ${risk}</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 mb-4">
+            <div class="stat-widget">
+              <p class="stat-label">Heart Rate</p>
+              <p class="stat-value" style="color:${hrColor}">${result.heart_rate_bpm}<span class="stat-unit">bpm</span></p>
+            </div>
+            <div class="stat-widget">
+              <p class="stat-label">Blood Pressure</p>
+              <p class="stat-value" style="color:${bpColor}">${escapeHtml(result.blood_pressure || '-')}</p>
+            </div>
+            <div class="stat-widget">
+              <p class="stat-label">SpO₂</p>
+              <p class="stat-value" style="color:${spoColor}">${result.sp_o2_pct}<span class="stat-unit">%</span></p>
+            </div>
+          </div>
+
+          ${(result.flags || []).length ? `
+          <div class="mb-3">
+            <p style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.375rem">Flags</p>
+            <div class="flex flex-wrap gap-1.5">
+              ${(result.flags || []).map(f => `<span style="font-size:0.6rem;padding:0.15rem 0.5rem;border-radius:9999px;background:rgba(51,65,85,0.30);color:var(--text-secondary);border:1px solid rgba(51,65,85,0.40)">${escapeHtml(f)}</span>`).join('')}
+            </div>
+          </div>` : ''}
+
+          <div>
+            <p style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.375rem">Clinical Guidance</p>
+            <ul class="text-xs space-y-1 list-disc list-inside">${guidance}</ul>
+          </div>
+
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(51,65,85,0.25)" class="flex items-center justify-between">
+            <p style="font-size:0.6rem;color:var(--text-muted)">Next Action</p>
+            <p style="font-size:0.75rem;color:var(--cyan);font-weight:500">${escapeHtml(result.recommended_next_action || '-')}</p>
+          </div>
+        </div>`;
+    }
+
+    function renderScheduleCard(result) {
+      return `
+        <div class="care-card" style="border-color:rgba(99,102,241,0.15);box-shadow:0 0 25px rgba(99,102,241,0.04)">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="flex items-center gap-2" style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">
+              <svg style="width:16px;height:16px;color:#818cf8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <path d="M16 2v4M8 2v4M3 10h18"/>
+              </svg>
+              Care Action Scheduled
+            </h3>
+            <span class="badge" style="background:rgba(99,102,241,0.10);color:#a5b4fc;border:1px solid rgba(99,102,241,0.20)">
+              ${escapeHtml(result.status || 'Scheduled')}
+            </span>
+          </div>
+          <div class="space-y-2.5">
+            <div class="flex justify-between items-center">
+              <span style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)">Action ID</span>
+              <code class="font-mono" style="font-size:0.7rem;color:var(--cyan);background:rgba(0,202,255,0.05);padding:0.1rem 0.5rem;border-radius:0.25rem">${escapeHtml(result.action_id || '-')}</code>
+            </div>
+            <div class="flex justify-between items-center">
+              <span style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)">Type</span>
+              <span class="text-xs" style="color:var(--text-secondary)">${escapeHtml(result.action_type || '-')}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted)">Scheduled For</span>
+              <span class="text-xs" style="color:var(--text-secondary)">${escapeHtml(result.scheduled_for ? new Date(result.scheduled_for).toLocaleString() : '-')}</span>
+            </div>
+          </div>
+          ${result.reminder_alerts ? `
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(51,65,85,0.25)">
+            <p style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem">Reminders</p>
+            <div class="space-y-1.5">
+              ${result.reminder_alerts.map(a => `
+                <div class="flex items-center gap-2 text-xs" style="color:var(--text-secondary)">
+                  <span style="width:4px;height:4px;border-radius:50%;background:#818cf8;flex-shrink:0"></span>
+                  ${escapeHtml(a.message)}
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>`;
+    }
+
+    function renderEmergencyCard(result) {
+      return `
+        <div class="emergency-card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="flex items-center gap-2" style="font-size:0.85rem;font-weight:700;color:#fb7185">
+              <svg style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              EMERGENCY PROTOCOL ACTIVATED
+            </h3>
+            <span class="badge badge-critical" style="font-weight:800">
+              ⚠ ${escapeHtml(result.severity || 'CRITICAL')}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.12);border-radius:0.75rem;padding:0.75rem">
+              <p style="font-size:0.6rem;color:rgba(251,113,133,0.6);text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-bottom:0.25rem">Incident ID</p>
+              <p class="font-mono font-semibold" style="font-size:0.85rem;color:#fda4af">${escapeHtml(result.incident_id || '-')}</p>
+            </div>
+            <div style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.12);border-radius:0.75rem;padding:0.75rem">
+              <p style="font-size:0.6rem;color:rgba(251,113,133,0.6);text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-bottom:0.25rem">EMS Arrival</p>
+              <p class="font-semibold" style="font-size:0.85rem;color:#fda4af">${result.dispatch_status?.estimated_arrival_min || '–'} min</p>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="flex items-center gap-2 text-xs">
+              <span style="width:20px;height:20px;border-radius:50%;background:rgba(34,197,94,0.12);color:#4ade80;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0">✓</span>
+              <span style="color:var(--text-secondary)">EMS dispatched — ${escapeHtml(result.dispatch_status?.dispatch_confirmation || '')}</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span style="width:20px;height:20px;border-radius:50%;background:rgba(34,197,94,0.12);color:#4ade80;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0">✓</span>
+              <span style="color:var(--text-secondary)">Caregiver SMS sent to ${result.caregiver_sms?.recipients?.length || 0} contacts</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span style="width:20px;height:20px;border-radius:50%;background:rgba(34,197,94,0.12);color:#4ade80;display:flex;align-items:center;justify-content:center;font-size:0.6rem;flex-shrink:0">✓</span>
+              <span style="color:var(--text-secondary)">Local alarms activated — doors unlocked, lights on</span>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderProfileCard(result) {
+      const meds = (result.active_medications || []).map(m =>
+        `<div class="flex items-center justify-between py-1.5" style="border-bottom:1px solid rgba(51,65,85,0.20)">
+           <span class="text-xs" style="color:var(--text-secondary)">${escapeHtml(m.name)}</span>
+           <span style="font-size:0.6rem;color:var(--text-muted)">${escapeHtml(m.dose)} · ${escapeHtml(m.frequency)}</span>
+         </div>`
+      ).join('');
+
+      return `
+        <div class="care-card" style="border-color:rgba(129,140,248,0.12)">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="flex items-center gap-2" style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">
+              <svg style="width:16px;height:16px;color:#a78bfa" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              Patient Profile
+            </h3>
+            <span class="font-mono" style="font-size:0.6rem;padding:0.15rem 0.5rem;background:rgba(51,65,85,0.30);color:var(--text-muted);border-radius:0.25rem">${escapeHtml(result.user_id || '-')}</span>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-4">
+            <div class="stat-widget" style="text-align:left">
+              <p class="stat-label">Patient</p>
+              <p style="font-size:0.85rem;font-weight:500;color:var(--text-primary)">${escapeHtml(result.name || '-')}</p>
+              <p style="font-size:0.6rem;color:var(--text-muted)">${result.age || '-'} y/o · ${escapeHtml(result.sex || '-')} · ${escapeHtml(result.blood_type || '-')}</p>
+            </div>
+            <div class="stat-widget" style="text-align:left">
+              <p class="stat-label">Allergies</p>
+              <div class="flex flex-wrap gap-1 mt-1">
+                ${(result.allergies || []).map(a => `<span style="font-size:0.6rem;padding:0.1rem 0.4rem;border-radius:9999px;background:rgba(251,191,36,0.08);color:#fbbf24;border:1px solid rgba(251,191,36,0.18)">${escapeHtml(a)}</span>`).join('')}
+              </div>
+            </div>
+          </div>
+          <div>
+            <p style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem">Active Medications</p>
+            <div style="background:rgba(15,23,42,0.40);border-radius:0.75rem;padding:0 0.75rem">${meds || '<p class="text-xs py-2" style="color:var(--text-muted)">None on file</p>'}</div>
+          </div>
+          ${result.emergency_contacts ? `
+          <div style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(51,65,85,0.25)">
+            <p style="font-size:0.6rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem">Emergency Contacts</p>
+            <div class="space-y-1.5">
+              ${result.emergency_contacts.map(c => `
+                <div class="flex items-center justify-between text-xs">
+                  <span style="color:var(--text-secondary)">${escapeHtml(c.name)} <span style="color:var(--text-muted)">· ${escapeHtml(c.relation)}</span></span>
+                  <span class="font-mono" style="font-size:0.6rem;color:var(--text-muted)">${escapeHtml(c.phone)}</span>
+                </div>`).join('')}
+            </div>
+          </div>` : ''}
+        </div>`;
+    }
+
+    function renderGenericCard(toolName, result) {
+      return `
+        <div class="care-card">
+          <h3 style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.75rem">Tool Result: ${escapeHtml(toolName)}</h3>
+          <pre style="font-size:0.7rem;color:var(--text-secondary);background:rgba(7,11,20,0.5);border-radius:0.5rem;padding:0.75rem;overflow-x:auto;white-space:pre-wrap">${escapeHtml(JSON.stringify(result, null, 2))}</pre>
+        </div>`;
+    }
+
+    // ── Card Router ────────────────────────────────────────
+    function renderToolCard(toolName, result) {
+      if (!toolName || !result) return '';
+      switch (toolName) {
+        case 'analyze_vitals': return renderVitalsCard(result);
+        case 'schedule_care_action': return renderScheduleCard(result);
+        case 'trigger_emergency_protocol': return renderEmergencyCard(result);
+        case 'get_patient_profile': return renderProfileCard(result);
+        default: return renderGenericCard(toolName, result);
+      }
+    }
+
+    // ── MCP Handshake ──────────────────────────────────────
+    async function mcpHandshake() {
+      log('info', 'MCP Handshake', 'GET /mcp/v1/tools — fetching tool manifest…');
+      try {
+        const resp = await fetch('/mcp/v1/tools');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        log('success', 'Manifest Received', `Protocol: ${data.protocol} · v${data.mcp_version} · ${data.tools?.length || 0} tools registered`, data);
+
+        // Show MCP badge
+        mcpBadgeInline.style.display = 'inline-flex';
+
+        // Log each tool
+        (data.tools || []).forEach(t => {
+          log('system', `Tool: ${t.name}`, t.description);
+        });
+      } catch (err) {
+        log('error', 'Handshake Failed', err.message);
+        log('info', 'Offline Mode', 'Server may not be running. UI operates in demo mode.');
+      }
+    }
+
+    // ── Send Prompt ────────────────────────────────────────
+    async function sendPrompt() {
+      const prompt = promptInput.value.trim();
+      if (!prompt || isProcessing) return;
+
+      isProcessing = true;
+      sendBtn.disabled = true;
+      promptInput.value = '';
+
+      // Hide welcome, show speech container
+      welcomeState.classList.add('hidden');
+      speechContainer.classList.remove('hidden');
+
+      // Show user echo
+      userEchoText.textContent = prompt;
+      userEcho.classList.remove('hidden');
+
+      // Show typing indicator
+      typingIndicator.classList.remove('hidden');
+      alexaSpeechCard.classList.add('hidden');
+      dynamicCards.innerHTML = '';
+
+      // Inspector: log user utterance
+      log('send', 'User Utterance', prompt);
+      log('info', 'Agent Processing', 'POST /api/alexa/interact — routing through Bedrock orchestrator…');
+
+      const startTime = performance.now();
+
+      try {
+        const resp = await fetch('/api/alexa/interact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt }),
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.detail?.message || `HTTP ${resp.status}`);
+        }
+
+        const data = await resp.json();
+        const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+
+        // Hide typing
+        typingIndicator.classList.add('hidden');
+
+        // Update engine badge
+        const eng = data.engine || 'Unknown';
+        if (eng.includes('Bedrock')) {
+          engineBadge.textContent = 'BEDROCK';
+          engineBadge.style.background = 'rgba(139,92,246,0.10)';
+          engineBadge.style.color = '#a78bfa';
+          engineBadge.style.border = '1px solid rgba(139,92,246,0.25)';
+        } else {
+          engineBadge.textContent = 'LOCAL ENGINE';
+          engineBadge.style.background = 'rgba(251,191,36,0.10)';
+          engineBadge.style.color = '#fbbf24';
+          engineBadge.style.border = '1px solid rgba(251,191,36,0.25)';
+        }
+
+        // Show Alexa speech
+        alexaSpeechText.textContent = data.alexa_speech || 'I processed your request.';
+        alexaSpeechCard.classList.remove('hidden');
+
+        // Speak the response aloud via TTS
+        speakAlexa(data.alexa_speech);
+
+        // Render dynamic card
+        if (data.tool_called && data.tool_result) {
+          dynamicCards.innerHTML = renderToolCard(data.tool_called, data.tool_result);
+
+          // Initialize ECG canvas if vitals card was rendered
+          if (data.tool_called === 'analyze_vitals') {
+            const ecgEl = document.getElementById('ecg-canvas');
+            if (ecgEl) {
+              requestAnimationFrame(() => initECG(ecgEl));
+            }
+          }
+        }
+
+        // Inspector logs
+        log('tool', `Tool: ${data.tool_called || 'none'}`, data.tool_called ? `Parameters: ${JSON.stringify(data.tool_parameters)}` : 'No tool invoked — general response', data.tool_result || null);
+        log('success', `Response (${elapsed}s)`, `Engine: ${eng} · Action: ${data.action_type || 'general'}`, data);
+
+        // Scroll display
+        const displayContent = $('#display-content');
+        displayContent.scrollTop = displayContent.scrollHeight;
+
+      } catch (err) {
+        typingIndicator.classList.add('hidden');
+        alexaSpeechText.textContent = 'I encountered an issue connecting to the server. Please ensure the server is running and try again.';
+        alexaSpeechCard.classList.remove('hidden');
+        log('error', 'Request Failed', err.message);
+      } finally {
+        isProcessing = false;
+        sendBtn.disabled = false;
+        promptInput.focus();
+      }
+    }
+
+    function sendQuickPrompt(text) {
+      promptInput.value = text;
+      sendPrompt();
+    }
+
+    // ── Text-to-Speech (TTS) ──────────────────────────────
+    function speakAlexa(text) {
+      if (!text || !window.speechSynthesis) return;
+
+      // Chromium fix: cancel any stuck queue, then resume the synth engine
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 1.0;
+
+      // Pick a natural female / Alexa-style voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = ['Zira', 'Samantha', 'Google UK English Female', 'Female'];
+      const match = voices.find(v =>
+        preferred.some(p => v.name.includes(p))
+      );
+      if (match) utterance.voice = match;
+
+      // Pin to window to prevent Chromium GC from killing the utterance mid-speech
+      window.currentUtterance = utterance;
+
+      // Orb animation on speech start/end
+      utterance.onstart = () => {
+        setOrbSpeaking(true);
+        log('tts', 'TTS Speaking', text.substring(0, 80) + (text.length > 80 ? '…' : ''));
+      };
+      utterance.onend = () => setOrbSpeaking(false);
+      utterance.onerror = () => setOrbSpeaking(false);
+
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Pre-load voice list (some browsers populate asynchronously)
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    // ── Voice Toggle (STT) ─────────────────────────────────
+    function toggleVoice() {
+      if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        log('error', 'Voice Unavailable', 'Web Speech API not supported in this browser.');
+        return;
+      }
+
+      if (isVoiceActive) {
+        recognition?.stop();
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isVoiceActive = true;
+        voiceBtn.classList.add('active');
+        promptInput.placeholder = 'Listening…';
+        log('info', 'Voice Active', 'Microphone capture started');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(r => r[0].transcript)
+          .join('');
+        promptInput.value = transcript;
+      };
+
+      recognition.onend = () => {
+        isVoiceActive = false;
+        voiceBtn.classList.remove('active');
+        promptInput.placeholder = 'Speak or type your health query…';
+        log('info', 'Voice Stopped', 'Microphone capture ended');
+        if (promptInput.value.trim()) {
+          sendPrompt();
+        }
+      };
+
+      recognition.onerror = (event) => {
+        isVoiceActive = false;
+        voiceBtn.classList.remove('active');
+        promptInput.placeholder = 'Speak or type your health query…';
+        log('error', 'Voice Error', event.error);
+      };
+
+      recognition.start();
+    }
+
+    // ── Clear Inspector ────────────────────────────────────
+    function clearInspector() {
+      inspectorLog.innerHTML = '';
+      logEventCount = 0;
+      logCount.textContent = '0 events';
+    }
+
+    // ── Initialization ─────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set greeting
+      greetingTime.textContent = getGreeting();
+
+      // Start clocks
+      updateClocks();
+      setInterval(updateClocks, 1000);
+
+      // System boot log
+      log('system', 'UI Initialized', 'Alexa+ LifeOps Ambient OS v2.0.0');
+      log('system', 'Runtime', `${navigator.userAgent.split(' ').slice(-2).join(' ')}`);
+
+      // MCP handshake
+      mcpHandshake();
+
+      // Focus input
+      promptInput.focus();
+    });
+  </script>
+</body>
+
+</html>
