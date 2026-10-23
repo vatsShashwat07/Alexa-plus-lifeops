@@ -1,45 +1,49 @@
 <div align="center">
 
-# 🏥 Alexa+ LifeOps
+# Alexa+ LifeOps
 
-### Autonomous Care Assistant — Voice-First Health Agent
+### Autonomous Care Assistant - Voice-First Health Agent
 
 [![Alexa+ MCP](https://img.shields.io/badge/Alexa%2B_MCP-2025--11--25-00CAFF?style=for-the-badge&logo=amazon-alexa&logoColor=white)](https://developer.amazon.com/alexa)
 [![AWS Bedrock](https://img.shields.io/badge/AWS_Bedrock-Converse_API-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/bedrock/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)](LICENSE)
 
-**Alexa+ LifeOps** is an autonomous health-care agent that transforms Amazon Echo Show into a proactive clinical assistant. It uses **MCP Streamable HTTP** for tool orchestration and **AWS Bedrock Converse** for intelligent agentic reasoning — analyzing vitals, scheduling medications, retrieving patient profiles, and triggering emergency protocols via natural voice conversation.
+**Alexa+ LifeOps** is an autonomous care agent concept that models an Amazon Echo Show proactive assistant. It uses the **MCP 2025-11-25 Streamable HTTP transport** for tool orchestration and **AWS Bedrock Converse** for multi-turn agentic reasoning - analyzing vitals, scheduling medication reminders, retrieving patient profiles, and triggering simulated emergency protocols via voice conversation.
 
-*Built for the Amazon Developer — Build, Ship, Shape Hackathon 2026.*
+*Built for the Amazon Developer - Build, Ship, Shape Hackathon 2026.*
 
 ---
 
 </div>
 
-## ✨ Features
-
-| Feature | Description |
-|---|---|
-| 🫀 **Vitals Analysis** | Real-time BP / Heart Rate / SpO₂ analysis with risk-level classification (Normal → Warning → Critical) and clinical guidance. |
-| 💊 **Medication Scheduling** | Natural-language care action scheduling with configurable reminders ("Schedule Metformin at 8 PM tonight"). |
-| 🚨 **Emergency Protocol** | Automatic EMS dispatch, caregiver SMS alerts, and local alarm activation on detecting critical symptoms. |
-| 👤 **Patient Profile** | Instant retrieval of demographics, allergies, active medications, and emergency contacts. |
-| 🗣️ **Voice I/O** | Full speech-to-text input (Web Speech API) + text-to-speech Alexa voice output with Chromium GC workarounds. |
-| 🔍 **MCP Inspector** | Built-in Streamable HTTP protocol inspector showing live tool calls, payloads, and timing. |
-| 🧠 **Bedrock Agentic Loop** | Multi-turn Converse API orchestration with automatic `toolUse` → `toolResult` cycling. |
-| 🔄 **Offline Capable** | Works fully offline — the built-in rule-based clinical evaluator invokes the same MCP tools when Bedrock is unavailable. |
+## Alexa+ Track Note
+Alexa+ LifeOps demonstrates an **MCP server over Streamable HTTP** coupled with an **Echo Show simulator companion UI**. The core service exposes a standards-compliant JSON-RPC 2.0 endpoint at `POST /mcp` that any standard MCP client can discover and execute against.
 
 ---
 
-## 🏗️ Architecture
+## Features
+
+| Feature | Description |
+|---|---|
+| **Vitals Analysis** | Spot BP, Heart Rate, and SpO2 analysis with AHA/ACC guidelines-based risk-level classification. |
+| **Medication Scheduling** | Natural-language care action scheduling with relative time parsing ("tomorrow at 8 PM"). |
+| **Simulated Emergency Protocol** | Multi-channel escalation (simulated 911 dispatch, caregiver alert, local alarm). |
+| **Patient Profile** | Baseline retrieval of demographics, allergies, active medications, and emergency contacts. |
+| **Voice & Visual Interaction** | Web Speech API speech-to-text input, Alexa voice synthesis, and dynamic care cards. |
+| **Multi-Turn Bedrock Loop** | Bedrock Converse loop that processes multiple sequential tool requests in a turn. |
+| **Rule-Based Fallback** | Deterministic local clinical evaluator that runs offline when AWS credentials are absent. |
+
+---
+
+## Architecture
 
 ```mermaid
 graph LR
-    A["👤 User<br/>(Voice / Text)"] --> B["📱 Echo Show UI<br/>(Browser)"]
-    B -->|"POST /api/alexa/interact"| C["⚡ FastAPI Gateway<br/>(server.py)"]
-    C -->|"Bedrock Converse"| D["🧠 Agent Orchestrator<br/>(agent.py)"]
-    D -->|"toolUse dispatch"| E["🔧 MCP Tool Server<br/>(tools.py)"]
-    E -->|"toolResult"| D
+    A["User<br/>(Voice / Text)"] --> B["Echo Show UI<br/>(Browser)"]
+    B -->|"POST /api/alexa/interact"| C["FastAPI Gateway<br/>(server.py)"]
+    C -->|"Bedrock Converse"| D["Agent Orchestrator<br/>(agent.py)"]
+    D -->|"dispatch_tool()"| E["MCP Tools<br/>(tools.py)"]
+    E -->|"tool result"| D
     D -->|"alexa_speech + cards"| C
     C -->|"JSON Response"| B
 
@@ -50,23 +54,15 @@ graph LR
     style E fill:#0f172a,stroke:#22c55e,color:#e2e8f0
 ```
 
-**Data Flow:**
-1. User speaks or types a health query on the Echo Show UI.
-2. FastAPI gateway forwards the prompt to the Bedrock Converse orchestrator.
-3. Bedrock Converse reasons over the query and emits `toolUse` requests.
-4. MCP tools execute deterministically (vitals analysis, scheduling, emergency dispatch).
-5. `toolResult` feeds back into the Converse loop until the model produces a final natural-language response.
-6. UI renders the Alexa speech bubble, dynamic cards, and TTS voice output simultaneously.
-
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Prerequisites
 - Python 3.10+
-- AWS credentials configured (optional — falls back to local rule-based engine)
+- AWS credentials configured (optional; falls back to local rule-based engine)
 
-### Run Locally in 3 Commands
+### Run Locally
 
 ```bash
 # 1. Install dependencies
@@ -76,48 +72,45 @@ pip install -r requirements.txt
 export AWS_ACCESS_KEY_ID=your_key
 export AWS_SECRET_ACCESS_KEY=your_secret
 export AWS_DEFAULT_REGION=us-east-1
+export BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
 
-# 3. Launch the server
+# 3. Launch server (binds to 127.0.0.1:8000 by default)
 python server.py
 ```
 
-Open **http://localhost:8000** in your browser → Echo Show UI + MCP Inspector ready.
-
-> **No AWS credentials?** No problem. The agent seamlessly switches to the built-in rule-based clinical evaluator — all MCP tools work identically.
+Open **http://localhost:8000** in your browser to view the Echo Show companion interface.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 alexa-plus-lifeops/
-├── server.py           # FastAPI gateway — MCP Streamable HTTP + Alexa endpoints
-├── agent.py            # Bedrock Converse orchestrator + rule-based clinical evaluator
-├── tools.py            # MCP tool implementations (vitals, scheduling, emergency, profile)
-├── requirements.txt    # Python dependencies
-├── static/
-│   └── index.html      # Echo Show simulator UI + MCP Inspector + TTS voice
-├── LICENSE             # MIT License
-├── FRICTION_LOG.md     # Developer friction log (10% bonus)
-└── README.md           # This file
+|-- server.py           # FastAPI gateway - POST /mcp (JSON-RPC 2.0) + Alexa endpoints
+|-- agent.py            # Bedrock Converse multi-turn orchestrator + rule-based evaluator
+|-- tools.py            # MCP tool definitions, schemas, and shared dispatcher
+|-- requirements.txt    # Pinned Python dependencies
+|-- static/
+|   \-- index.html      # Echo Show simulator companion UI + voice synthesis
+|-- LICENSE             # MIT License
+|-- FRICTION_LOG.md     # Developer feedback report
+\-- README.md           # Project documentation
 ```
 
 ---
 
-## 🛠️ MCP Tool Manifest & Endpoints
+## Official MCP Endpoint (`POST /mcp`)
 
-The server exposes 4 clinical tools via the MCP Streamable HTTP protocol (`/mcp` and legacy `/mcp/v1/*`):
+The primary integration interface is **`POST /mcp`**, implementing the **Model Context Protocol 2025-11-25 Streamable HTTP transport**.
 
-| Tool | Parameters | Description |
-|---|---|---|
-| `analyze_vitals` | `systolic`, `diastolic`, `heart_rate`, `sp_o2` | Analyze BP, HR, SpO₂ with risk classification |
-| `schedule_care_action` | `action_type`, `details`, `schedule_time` | Schedule medication reminders and care actions |
-| `trigger_emergency_protocol` | `reason`, `patient_location` | Activate EMS dispatch + caregiver alerts |
-| `get_patient_profile` | `patient_id` | Retrieve patient demographics, medications, allergies |
+Supported JSON-RPC 2.0 methods:
+- `initialize`: Protocol negotiation, returns server capabilities and metadata.
+- `notifications/initialized`: Notification handshake, returns `202 Accepted` with empty body.
+- `ping`: Liveness check, returns `{}`.
+- `tools/list`: Returns schemas for all 4 clinical tools.
+- `tools/call`: Executes a tool by name, returning text and structured content with `isError: false`.
 
-**Protocol:** `MCP v2025-11-25 · Streamable HTTP · JSON-RPC 2.0`  
-**JSON-RPC Endpoint:** `POST /mcp`  
-**REST Manifest:** `GET /mcp/v1/tools`
+> **Note on `/mcp/v1/*` routes**: The `/mcp/v1/tools` and `/mcp/v1/tools/call` endpoints are legacy REST helper routes preserved for backward compatibility with the bundled Echo Show UI.
 
 ### Official MCP JSON-RPC 2.0 Testing (`/mcp`)
 
@@ -143,9 +136,9 @@ curl -X POST http://localhost:8000/mcp \
     "method": "notifications/initialized"
   }'
 ```
-*(Returns `HTTP 202 Accepted` per MCP specification)*
+*(Returns `HTTP 202 Accepted` with empty body)*
 
-#### 3. Discover Tools (`tools/list`)
+#### 3. Ping (`ping`)
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
@@ -153,11 +146,11 @@ curl -X POST http://localhost:8000/mcp \
   -d '{
     "jsonrpc": "2.0",
     "id": 2,
-    "method": "tools/list"
+    "method": "ping"
   }'
 ```
 
-#### 4. Execute Tool (`tools/call`)
+#### 4. Discover Tools (`tools/list`)
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
@@ -165,64 +158,72 @@ curl -X POST http://localhost:8000/mcp \
   -d '{
     "jsonrpc": "2.0",
     "id": 3,
+    "method": "tools/list"
+  }'
+```
+
+#### 5. Execute Tool (`tools/call`)
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 4,
     "method": "tools/call",
     "params": {
       "name": "analyze_vitals",
       "arguments": {
         "systolic": 140,
         "diastolic": 90,
-        "heart_rate": 95,
-        "sp_o2": 97
+        "heart_rate": 95
       }
     }
   }'
 ```
-*(Returns official envelope: `{"result": {"content": [{"type": "text", "text": "..."}], "isError": false}}`)*
 
 ---
 
-### 🔬 Testing with the Official MCP Inspector
+## Testing with the Official MCP Inspector
 
-You can connect and inspect Alexa+ LifeOps using the official Model Context Protocol Inspector:
+You can connect and test Alexa+ LifeOps with the official Model Context Protocol Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector
 ```
 
-1. Open the inspector web interface.
+1. Open the inspector web interface (e.g. `http://localhost:5173`).
 2. Select Transport: **Streamable HTTP**.
 3. Set Server URL: `http://localhost:8000/mcp`.
-4. Click **Connect** to interactively test tool schemas, run `tools/call`, and inspect raw JSON-RPC 2.0 frames.
+4. Click **Connect** to inspect tool schemas and execute live calls.
 
 ---
 
-## 🏆 Hackathon Track Alignment
+## Hackathon Track Summary
 
-| Track | Status | Details |
-|---|---|---|
-| ✅ **Alexa+ Track** | Qualified | MCP Streamable HTTP server with tool manifest, multi-tool orchestration, Echo Show simulated UI |
-| ✅ **AWS Builder Challenge** | Qualified | Bedrock Converse API with agentic `toolUse` / `toolResult` loop |
-| ✅ **Open Source Mini Challenge** | Qualified | MIT License — fully open source |
-| ✅ **10% Friction Log Bonus** | Qualified | Comprehensive [FRICTION_LOG.md](FRICTION_LOG.md) with structured feedback on MCP Streamable HTTP chunked response buffering and Bedrock Converse schema strictness |
+| Track | Implementation Summary |
+|---|---|
+| **Alexa+ Track** | MCP server over Streamable HTTP (`POST /mcp`, 2025-11-25) + Echo Show simulator UI. |
+| **AWS Builder Challenge** | AWS Bedrock Converse API integration with multi-turn `toolUse`/`toolResult` loop and deterministic local fallback. |
+| **Open Source Mini Challenge** | Open-source project published under the standard MIT License. |
+| **Developer Friction Log** | Structured feedback report in [FRICTION_LOG.md](FRICTION_LOG.md) documenting technical friction with Streamable HTTP and Converse schemas. |
 
 ---
 
-## 📄 License
+## Limitations / Disclaimer
 
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+> **Demo Only - Not a Medical Device**
+> 
+> Alexa+ LifeOps is a prototype simulation built for the Amazon Developer - Build, Ship, Shape Hackathon 2026.
+> - **No Real Emergency Dispatch**: Emergency actions, EMS dispatch alerts, and SMS notifications are simulated locally. No emergency services (911 or otherwise) are contacted.
+> - **Not Diagnostic**: Risk assessments and triage outputs are for demonstration only and should not replace licensed clinical care.
+> - **Local Demo Environment**: The local development server does not enforce authentication or encryption; it is intended for local inspection (`127.0.0.1`).
+> - **Rule-Based Fallback**: When AWS Bedrock credentials are unavailable, the agent falls back to a deterministic rule-based clinical engine.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
 Copyright (c) 2026 Shashwat Pandey
-
----
-
-<div align="center">
-
-**Built with ❤️ for the Amazon Developer — Build, Ship, Shape Hackathon 2026**
-
-*Alexa+ LifeOps — Because health care should be voice-first, intelligent, and always available.*
-
-</div>
-
----
-### ⚠️ Medical & Simulation Disclaimer
-Alexa+ LifeOps is a simulated concept demonstration built exclusively for the Amazon Developer — Build, Ship, Shape Hackathon 2026. It is NOT a certified medical device and is NOT intended for primary clinical diagnosis, critical patient monitoring, or real-world emergency dispatch. All triage outcomes, reminders, and alerts are simulated locally.

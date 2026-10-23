@@ -1,69 +1,62 @@
-# 📋 Friction Log — Alexa+ LifeOps
+# Friction Log - Alexa+ LifeOps
 
-> **Hackathon:** Amazon Developer — Build, Ship, Shape 2026
+> **Hackathon:** Amazon Developer - Build, Ship, Shape 2026
 > **Track:** Alexa+ MCP Streamable HTTP & AWS Bedrock
 > **Author:** Shashwat Pandey
 > **Date:** October 2026
-> **Purpose:** 10% Judging Bonus — Product Feedback & Developer Experience Report
+> **Purpose:** Developer Experience & Technical Friction Report
 
 ---
 
-## 1 · What Worked Well ✅
+## 1. What Worked Well
 
-| Area | Details |
-|---|---|
-| **MCP Protocol Spec (2025-11-25)** | The Streamable HTTP transport spec is well-documented and straightforward to implement as a plain JSON-over-HTTP contract. No WebSocket complexity — a single `POST` endpoint is all you need for tool execution. The manifest + tool-listing convention (`/mcp/v1/tools`) makes client discovery trivial. |
-| **Bedrock Converse API** | The unified Converse API is a massive quality-of-life improvement over raw `invoke_model`. Having `toolUse` / `toolResult` as first-class message roles means the agentic loop is clean and model-agnostic — we can swap between foundation models without rewriting orchestration logic. |
-| **FastAPI + ASGI Fit** | Building the MCP server on FastAPI felt natural. The JSON-RPC-style contract maps 1:1 to Pydantic models, and the static file serving made bundling the Echo Show UI trivial. |
-| **Rule-Based Evaluator Pattern** | The Converse API's predictable error classes (`NoCredentialsError`, `EndpointConnectionError`, `ClientError`) made it straightforward to build a graceful degradation path — the agent works fully offline via a deterministic rule-based clinical evaluator when Bedrock credentials are unavailable. |
-| **Developer Onboarding (Bedrock)** | Getting `boto3` → `bedrock-runtime` → `converse()` running took < 30 minutes. The AWS docs for Converse are solid with clear request/response schemas. |
+- **MCP Protocol Specification (2025-11-25)**: The Streamable HTTP transport provides a clean contract over standard HTTP POST. Operating via JSON-RPC 2.0 with discrete initialize, ping, and tool execution methods allows tool serving without complex connection state.
+- **AWS Bedrock Converse API**: The Converse API eliminates model-specific invocation payloads. The first-class message roles for `toolUse` and `toolResult` make the multi-turn agentic loop straightforward.
+- **FastAPI Integration**: Implementing the MCP JSON-RPC 2.0 endpoint with FastAPI was direct, and allowed hosting both the API and the Echo Show companion interface in a single process.
+- **Deterministic Offline Fallback**: Predictable exception handling in boto3 (`NoCredentialsError`, `EndpointConnectionError`) allowed clean degradation to a local clinical rule-based engine when cloud credentials are not active.
 
 ---
 
-## 2 · Areas for Improvement 🔧
+## 2. Technical Friction Log
 
-### 2.1 MCP Streamable HTTP — Documentation Gaps
+The following entries document technical obstacles encountered during implementation of the MCP Streamable HTTP transport and Bedrock Converse tool orchestration:
 
-The MCP 2025-11-25 spec describes the *protocol contract* but provides no **reference server implementations** for popular frameworks (FastAPI, Express, Spring Boot). A cookiecutter template or official SDK would dramatically reduce boilerplate — we had to hand-roll manifest serving, tool dispatch routing, and MCP session management.
-
-**Suggestion:** Publish official `mcp-server-python` and `mcp-server-node` SDKs with decorators/annotations (e.g., `@mcp_tool(name="analyze_vitals")`) that auto-generate the manifest and handle dispatch.
-
-### 2.2 Bedrock Converse — Tool Schema Strictness
-
-The Bedrock Converse API's `toolSpec.inputSchema` validation is stricter than documented when dealing with optional fields. Nested JSON objects require every property to have an explicit `type` even when the field is optional and may be absent from model output. This created silent failures where the model would omit an optional vitals field and the API would reject the entire tool call.
-
-**Suggestion:** Support `"required": [...]` properly so that unlisted properties are truly optional, or document the strictness level clearly with examples of optional nested fields.
-
-### 2.3 Alexa+ MCP Inspector Tooling
-
-There is no official developer inspector or debug UI for MCP Streamable HTTP traffic. We built a custom protocol inspector panel from scratch to visualize request/response payloads, tool invocations, and timing. An official Chrome DevTools-style inspector (similar to the GraphQL explorer) would be invaluable.
-
-**Suggestion:** Ship an `mcp-inspector` CLI or browser extension that auto-discovers local MCP servers and provides a live traffic view with payload inspection.
+### Entry 1: MCP Streamable HTTP Chunked Buffering in ASGI
+- **Task Attempted**: Stream MCP tool responses incrementally via Streamable HTTP through FastAPI and Uvicorn.
+- **Steps Taken**: Implemented streaming responses returning chunked payloads from tool executions. Tested with client fetch requests.
+- **Expected vs Actual**:
+  - *Expected*: Incremental chunks arrive progressively at the client as tool actions occur.
+  - *Actual*: Default ASGI/Uvicorn buffers the chunked stream until request completion before flushing to the client, negating streaming benefits unless custom transport buffering flags are enabled.
+- **Severity**: Medium
+- **Workaround**: Returned complete, well-formed JSON-RPC payloads in a single response cycle for discrete tool calls, ensuring deterministic delivery.
+- **Actionable Suggestion**: Publish reference ASGI configurations and an official streaming test harness for Python MCP servers to validate per-chunk delivery across ASGI servers.
 
 ---
 
-## 3 · Structured Friction Log Table
-
-| # | Task Attempted | Steps Taken | Expected | Actual | Severity | Workaround Used | Actionable Suggestion |
-|---|---|---|---|---|---|---|---|
-| **1** | **Stream MCP tool responses via Streamable HTTP through ASGI (Uvicorn)** | Implemented `/mcp/v1/tools/call` returning chunked `Transfer-Encoding: chunked` JSON responses from FastAPI. Tested with the Echo Show UI fetching tool results. | Chunked response body should arrive incrementally in the browser, allowing progressive rendering of long tool outputs (e.g., multi-step emergency protocol results). | **Uvicorn's ASGI layer and certain reverse proxies (nginx default config) buffer the entire chunked response before forwarding**, defeating the purpose of streaming. The browser `fetch()` only receives the complete body after the server closes the connection. No partial chunks are delivered. This is especially problematic for long-running tool executions (emergency dispatch with multiple sub-steps). | **Major** | Switched to returning complete JSON responses in a single flush instead of chunked streaming. For the hackathon, latency was acceptable (< 2s), but this approach won't scale for real-time multi-step tool pipelines. Also tested adding `X-Accel-Buffering: no` header for nginx, which partially helped. | **1)** Document recommended ASGI server settings for streaming (e.g., Uvicorn `--http h11` vs `httptools`, Hypercorn config). **2)** Provide a reference streaming implementation that explicitly flushes per-chunk using ASGI `send()` with `more_body=True`. **3)** Add an MCP transport conformance test suite that validates chunk-by-chunk delivery. |
-| **2** | **Define Bedrock Converse `toolSpec` for `analyze_vitals` with optional vital metrics** | Defined `inputSchema` with properties `systolic`, `diastolic`, `heart_rate`, `sp_o2`, `temperature`, `respiratory_rate`. Marked only `systolic`, `diastolic`, and `heart_rate` as `required`. Other fields (`sp_o2`, `temperature`, `respiratory_rate`) were intentionally optional — users may only report "blood pressure is 145/95 and pulse is 108" without SpO2 or temperature. | Bedrock Converse should accept the tool call when the model omits optional properties from its `toolUse` input JSON. The `required` array should be the source of truth for which fields must be present. | **Bedrock Converse API returned a `ValidationException` when the model's `toolUse` input JSON omitted optional nested properties** that had a defined `type` in the schema but were not in `required`. The error message was generic (`invalid tool input`) with no indication of *which* field caused the rejection. Additionally, when we added `"type": ["number", "null"]` union syntax for optional fields, Bedrock rejected the schema itself — it does not support JSON Schema union types in `inputSchema`. | **Major** | **1)** Changed all optional vital fields to `required` in the schema and set sensible defaults (e.g., `sp_o2: 98`, `temperature: 98.6`) in the tool implementation when values are `0` or sentinel. **2)** Added explicit instructions in the Bedrock system prompt: *"Always provide all vital parameters when calling analyze_vitals. Use 0 for unknown values."* This forced the model to always emit every field. **3)** Wrapped tool execution in a try/catch to retry with defaults on validation failure. | **1)** Support JSON Schema `"type": ["number", "null"]` or `oneOf` for optional fields in `toolSpec.inputSchema`. **2)** Return field-level validation errors instead of a generic `ValidationException` — e.g., `"missing required field: sp_o2 at toolUse.input.sp_o2"`. **3)** Document the exact JSON Schema subset supported by Converse `inputSchema` (Draft-04? Draft-07?) with explicit examples of optional fields. |
-
----
-
-## 4 · Summary & Recommendations
-
-### For the MCP Streamable HTTP Team:
-1. **Reference implementations** in Python/Node/Java would cut onboarding from hours to minutes.
-2. **Streaming conformance tests** — a test harness that validates chunk-level delivery would prevent ASGI/proxy buffering surprises.
-3. **Official inspector tooling** — live MCP traffic visualization is essential for debugging agent ↔ tool interactions.
-
-### For the AWS Bedrock Team:
-1. **Flexible `inputSchema` validation** — honor `required` arrays and support union types for optional tool parameters.
-2. **Granular error messages** — field-level validation feedback on `toolUse` input would save hours of debugging.
-3. **Tool call dry-run mode** — a `/converse/validate` endpoint that checks tool schemas without executing would accelerate development.
+### Entry 2: Bedrock Converse Nested Schema Strictness on Optional Fields
+- **Task Attempted**: Define `analyze_vitals` toolSpec with optional vital parameters (`sp_o2`, `heart_rate`) alongside required blood pressure fields.
+- **Steps Taken**: Configured JSON Schema in `toolSpec.inputSchema.json` with properties and listed only required keys in the `"required"` array.
+- **Expected vs Actual**:
+  - *Expected*: Bedrock Converse accepts toolUse payloads where the model omits unprovided optional fields.
+  - *Actual*: The Converse API returned validation errors when optional properties lacked specific typing or when schema unions (`["number", "null"]`) were attempted.
+- **Severity**: High
+- **Workaround**: Made spot vital parameters nullable or provided fallback defaults, filtering missing parameters before passing to target functions via `inspect.signature`.
+- **Actionable Suggestion**: Expand Bedrock Converse documentation with clear examples of optional tool parameters, and support standard JSON Schema `oneOf` or nullable property definitions.
 
 ---
 
-> **Overall Developer Experience: 8/10**
-> The core primitives (MCP protocol, Bedrock Converse) are excellent and well-designed. The friction is primarily at the *edges* — streaming transport behavior, schema validation strictness, and missing developer tooling. These are all solvable and would elevate the platform from great to best-in-class.
+### Entry 3: MCP Inspector Origin & Notification Handling in Streamable HTTP
+- **Task Attempted**: Connect the official Model Context Protocol inspector (`@modelcontextprotocol/inspector`) to `http://localhost:8000/mcp`.
+- **Steps Taken**: Sent initialization handshake and subsequent notification frames from the inspector.
+- **Expected vs Actual**:
+  - *Expected*: Inspector connects immediately without transport errors.
+  - *Actual*: Streamable HTTP clients reject responses to notifications (requests without an `id` member, such as `notifications/initialized`) if any JSON response body is returned. Furthermore, browser security requires strict validation of the `Origin` header.
+- **Severity**: Medium
+- **Workaround**: Implemented explicit handling returning `202 Accepted` with an empty body for all notification requests, and added local Origin allowlist validation.
+- **Actionable Suggestion**: Provide clearer documentation in the MCP Streamable HTTP transport specification regarding exact HTTP status codes and headers expected for notifications vs requests.
+
+---
+
+## 3. Summary & Takeaways
+
+The combination of Model Context Protocol and AWS Bedrock Converse provides a strong foundation for voice-first agentic health applications. Most friction points occurred around transport subtleties (notification response semantics, ASGI buffering) and strict schema validation. Addressing these in official SDK templates will significantly streamline developer adoption.
