@@ -11,13 +11,14 @@ FastAPI application exposing:
 from __future__ import annotations
 
 import os
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -321,12 +322,13 @@ OFFICIAL_MCP_TOOLS: list[dict[str, Any]] = [
 
 @app.post("/mcp")
 async def mcp_jsonrpc_endpoint(request: Request):
-    """Official MCP (Model Context Protocol) JSON-RPC 2.0 Streamable HTTP endpoint.
+    """Official MCP (Model Context Protocol 2025-11-25) Streamable HTTP endpoint.
 
-    Handles:
+    Strict JSON-RPC 2.0 implementation supporting:
       - initialize
+      - notifications (e.g. notifications/initialized) -> 202 Accepted
       - tools/list
-      - tools/call
+      - tools/call -> envelope with content and isError: false
     """
     try:
         body = await request.json()
@@ -341,6 +343,7 @@ async def mcp_jsonrpc_endpoint(request: Request):
                     "message": "Parse error: Invalid JSON payload received.",
                 },
             },
+            media_type="application/json",
         )
 
     if not isinstance(body, dict):
@@ -354,6 +357,7 @@ async def mcp_jsonrpc_endpoint(request: Request):
                     "message": "Invalid Request: Expected JSON object.",
                 },
             },
+            media_type="application/json",
         )
 
     req_id = body.get("id")
@@ -362,36 +366,47 @@ async def mcp_jsonrpc_endpoint(request: Request):
     if not isinstance(params, dict):
         params = {}
 
-    # 1. initialize
+    # 1. JSON-RPC Notifications (requests without an 'id' or notifications/* methods)
+    if method == "notifications/initialized" or (method and method.startswith("notifications/")):
+        return Response(status_code=202)
+
+    if "id" not in body and method not in ("initialize", "tools/list", "tools/call"):
+        return Response(status_code=202)
+
+    # 2. initialize
     if method == "initialize":
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {
-                "protocolVersion": "2025-11-25",
-                "capabilities": {
-                    "tools": {},
-                },
-                "serverInfo": {
-                    "name": "alexa-plus-lifeops",
-                    "version": "1.0.0",
+        return JSONResponse(
+            status_code=200,
+            content={
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {
+                        "tools": {},
+                    },
+                    "serverInfo": {
+                        "name": "alexa-plus-lifeops",
+                        "version": "1.0.0",
+                    },
                 },
             },
-        }
-
-    # 2. notifications/initialized handshake
-    if method in ("notifications/initialized", "initialized"):
-        return {"jsonrpc": "2.0", "id": req_id, "result": {}}
+            media_type="application/json",
+        )
 
     # 3. tools/list
     if method == "tools/list":
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {
-                "tools": OFFICIAL_MCP_TOOLS,
+        return JSONResponse(
+            status_code=200,
+            content={
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "tools": OFFICIAL_MCP_TOOLS,
+                },
             },
-        }
+            media_type="application/json",
+        )
 
     # 4. tools/call
     if method == "tools/call":
@@ -411,6 +426,7 @@ async def mcp_jsonrpc_endpoint(request: Request):
                         "message": f"Method or tool '{tool_name}' not found. Available: {list(_TOOL_MAP.keys())}",
                     },
                 },
+                media_type="application/json",
             )
 
         # Normalize argument aliases
@@ -435,6 +451,7 @@ async def mcp_jsonrpc_endpoint(request: Request):
                         "message": f"Invalid arguments for tool '{tool_name}': {exc}",
                     },
                 },
+                media_type="application/json",
             )
         except Exception as exc:
             logger.exception("MCP tools/call error for tool %s: %s", tool_name, exc)
@@ -448,20 +465,26 @@ async def mcp_jsonrpc_endpoint(request: Request):
                         "message": f"Internal error executing tool '{tool_name}': {exc}",
                     },
                 },
+                media_type="application/json",
             )
 
-        return {
-            "jsonrpc": "2.0",
-            "id": req_id,
-            "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": str(output),
-                    }
-                ]
+        return JSONResponse(
+            status_code=200,
+            content={
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": str(output),
+                        }
+                    ],
+                    "isError": False,
+                },
             },
-        }
+            media_type="application/json",
+        )
 
     # 5. Method not found
     return JSONResponse(
@@ -474,19 +497,45 @@ async def mcp_jsonrpc_endpoint(request: Request):
                 "message": f"Method not found: '{method}'",
             },
         },
+        media_type="application/json",
     )
 
 
 @app.get("/mcp", include_in_schema=False)
-async def mcp_service_info():
-    """Information endpoint for the Streamable HTTP MCP service."""
-    return {
-        "service": "alexa-plus-lifeops",
-        "protocol": "mcp-streamable-http",
-        "version": "2025-11-25",
-        "rpc_endpoint": "/mcp",
-        "supported_methods": ["initialize", "tools/list", "tools/call"],
-    }
+async def mcp_service_info(request: Request):
+    """Information and SSE endpoint for the Streamable HTTP MCP service."""
+    accept = request.headers.get("accept", "")
+    if "text/event-stream" in accept:
+        async def event_generator():
+            yield "event: endpoint\ndata: /mcp\n\n"
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    await asyncio.sleep(5)
+                    yield ": ping\n\n"
+            except (asyncio.CancelledError, GeneratorExit):
+                pass
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
+        )
+
+    return JSONResponse(
+        content={
+            "service": "alexa-plus-lifeops",
+            "protocol": "mcp-streamable-http",
+            "version": "2025-11-25",
+            "rpc_endpoint": "/mcp",
+            "supported_methods": ["initialize", "notifications/initialized", "tools/list", "tools/call"],
+        },
+        media_type="application/json",
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

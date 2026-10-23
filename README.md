@@ -125,6 +125,7 @@ The server exposes 4 clinical tools via the MCP Streamable HTTP protocol (`/mcp`
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
@@ -132,10 +133,23 @@ curl -X POST http://localhost:8000/mcp \
   }'
 ```
 
-#### 2. Discover Tools (`tools/list`)
+#### 2. Notification Handshake (`notifications/initialized`)
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "notifications/initialized"
+  }'
+```
+*(Returns `HTTP 202 Accepted` per MCP specification)*
+
+#### 3. Discover Tools (`tools/list`)
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
     "id": 2,
@@ -143,10 +157,11 @@ curl -X POST http://localhost:8000/mcp \
   }'
 ```
 
-#### 3. Execute Tool (`tools/call`)
+#### 4. Execute Tool (`tools/call`)
 ```bash
 curl -X POST http://localhost:8000/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
   -d '{
     "jsonrpc": "2.0",
     "id": 3,
@@ -162,6 +177,22 @@ curl -X POST http://localhost:8000/mcp \
     }
   }'
 ```
+*(Returns official envelope: `{"result": {"content": [{"type": "text", "text": "..."}], "isError": false}}`)*
+
+---
+
+### 🔬 Testing with the Official MCP Inspector
+
+You can connect and inspect Alexa+ LifeOps using the official Model Context Protocol Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+1. Open the inspector web interface.
+2. Select Transport: **Streamable HTTP**.
+3. Set Server URL: `http://localhost:8000/mcp`.
+4. Click **Connect** to interactively test tool schemas, run `tools/call`, and inspect raw JSON-RPC 2.0 frames.
 
 ---
 
