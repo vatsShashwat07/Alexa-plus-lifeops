@@ -219,7 +219,278 @@ async def health_check():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  MCP v2025-11-25 STREAMABLE HTTP ENDPOINTS
+#  OFFICIAL MCP JSON-RPC 2.0 (2025-11-25 STREAMABLE HTTP)
+# ══════════════════════════════════════════════════════════════════════════════
+
+OFFICIAL_MCP_TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "analyze_vitals",
+        "description": "Perform cardiovascular risk assessment from spot vitals (systolic, diastolic, heart rate, SpO2).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "systolic": {
+                    "type": "integer",
+                    "description": "Systolic blood pressure in mmHg.",
+                },
+                "diastolic": {
+                    "type": "integer",
+                    "description": "Diastolic blood pressure in mmHg.",
+                },
+                "heart_rate": {
+                    "type": "integer",
+                    "description": "Heart rate in beats per minute (bpm).",
+                },
+                "sp_o2": {
+                    "type": "integer",
+                    "description": "Peripheral capillary oxygen saturation percentage (SpO2).",
+                },
+            },
+            "required": ["systolic", "diastolic", "heart_rate"],
+        },
+    },
+    {
+        "name": "schedule_care_action",
+        "description": "Create a scheduled care-action ledger entry with reminder alerts.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action_type": {
+                    "type": "string",
+                    "description": "Category of action (e.g., medication_reminder, doctor_appointment, lab_test).",
+                },
+                "details": {
+                    "type": "string",
+                    "description": "Human-readable description of the scheduled task.",
+                },
+                "schedule_time": {
+                    "type": "string",
+                    "description": "ISO-8601 datetime for when the action is scheduled.",
+                },
+            },
+            "required": ["action_type", "details", "schedule_time"],
+        },
+    },
+    {
+        "name": "trigger_emergency_protocol",
+        "description": "Escalate a health emergency — dispatches EMS, sends caregiver SMS alerts, and activates local alarms.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Short description of the triggering event or symptom.",
+                },
+                "patient_location": {
+                    "type": "string",
+                    "description": "Patient's current physical location for dispatch.",
+                },
+                "vitals_summary": {
+                    "type": "string",
+                    "description": "Optional compact representation of current vitals.",
+                },
+                "severity": {
+                    "type": "string",
+                    "description": "Emergency severity tag (default CRITICAL).",
+                    "enum": ["CRITICAL", "HIGH", "MODERATE"],
+                },
+            },
+            "required": ["reason"],
+        },
+    },
+    {
+        "name": "get_patient_profile",
+        "description": "Retrieve patient's baseline profile, active medications, resting vitals, and emergency contacts.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "patient_id": {
+                    "type": "string",
+                    "description": "Unique patient identifier.",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "Patient identifier alias.",
+                },
+            },
+            "required": [],
+        },
+    },
+]
+
+
+@app.post("/mcp")
+async def mcp_jsonrpc_endpoint(request: Request):
+    """Official MCP (Model Context Protocol) JSON-RPC 2.0 Streamable HTTP endpoint.
+
+    Handles:
+      - initialize
+      - tools/list
+      - tools/call
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=200,
+            content={
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32700,
+                    "message": "Parse error: Invalid JSON payload received.",
+                },
+            },
+        )
+
+    if not isinstance(body, dict):
+        return JSONResponse(
+            status_code=200,
+            content={
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid Request: Expected JSON object.",
+                },
+            },
+        )
+
+    req_id = body.get("id")
+    method = body.get("method")
+    params = body.get("params", {})
+    if not isinstance(params, dict):
+        params = {}
+
+    # 1. initialize
+    if method == "initialize":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {
+                    "tools": {},
+                },
+                "serverInfo": {
+                    "name": "alexa-plus-lifeops",
+                    "version": "1.0.0",
+                },
+            },
+        }
+
+    # 2. notifications/initialized handshake
+    if method in ("notifications/initialized", "initialized"):
+        return {"jsonrpc": "2.0", "id": req_id, "result": {}}
+
+    # 3. tools/list
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "tools": OFFICIAL_MCP_TOOLS,
+            },
+        }
+
+    # 4. tools/call
+    if method == "tools/call":
+        tool_name = params.get("name")
+        tool_args = params.get("arguments", {})
+        if not isinstance(tool_args, dict):
+            tool_args = {}
+
+        if not tool_name or tool_name not in _TOOL_MAP:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32601,
+                        "message": f"Method or tool '{tool_name}' not found. Available: {list(_TOOL_MAP.keys())}",
+                    },
+                },
+            )
+
+        # Normalize argument aliases
+        if tool_name == "get_patient_profile":
+            if "patient_id" in tool_args and "user_id" not in tool_args:
+                tool_args["user_id"] = tool_args["patient_id"]
+        elif tool_name == "trigger_emergency_protocol":
+            if "patient_location" in tool_args and "vitals_summary" not in tool_args:
+                tool_args["vitals_summary"] = f"Location: {tool_args['patient_location']}"
+
+        try:
+            tool_fn = _TOOL_MAP[tool_name]
+            output = tool_fn(**tool_args)
+        except TypeError as exc:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32602,
+                        "message": f"Invalid arguments for tool '{tool_name}': {exc}",
+                    },
+                },
+            )
+        except Exception as exc:
+            logger.exception("MCP tools/call error for tool %s: %s", tool_name, exc)
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "error": {
+                        "code": -32603,
+                        "message": f"Internal error executing tool '{tool_name}': {exc}",
+                    },
+                },
+            )
+
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": str(output),
+                    }
+                ]
+            },
+        }
+
+    # 5. Method not found
+    return JSONResponse(
+        status_code=200,
+        content={
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {
+                "code": -32601,
+                "message": f"Method not found: '{method}'",
+            },
+        },
+    )
+
+
+@app.get("/mcp", include_in_schema=False)
+async def mcp_service_info():
+    """Information endpoint for the Streamable HTTP MCP service."""
+    return {
+        "service": "alexa-plus-lifeops",
+        "protocol": "mcp-streamable-http",
+        "version": "2025-11-25",
+        "rpc_endpoint": "/mcp",
+        "supported_methods": ["initialize", "tools/list", "tools/call"],
+    }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  LEGACY / EXTENSION STREAMABLE HTTP ENDPOINTS (for UI & backward compat)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _build_manifest() -> dict[str, Any]:

@@ -90,7 +90,7 @@ Open **http://localhost:8000** in your browser → Echo Show UI + MCP Inspector 
 ## 📁 Project Structure
 
 ```
-AMaZon/
+alexa-plus-lifeops/
 ├── server.py           # FastAPI gateway — MCP Streamable HTTP + Alexa endpoints
 ├── agent.py            # Bedrock Converse orchestrator + rule-based clinical evaluator
 ├── tools.py            # MCP tool implementations (vitals, scheduling, emergency, profile)
@@ -104,19 +104,64 @@ AMaZon/
 
 ---
 
-## 🛠️ MCP Tool Manifest
+## 🛠️ MCP Tool Manifest & Endpoints
 
-The server exposes 4 clinical tools via the MCP Streamable HTTP protocol:
+The server exposes 4 clinical tools via the MCP Streamable HTTP protocol (`/mcp` and legacy `/mcp/v1/*`):
 
-| Tool | Endpoint | Description |
+| Tool | Parameters | Description |
 |---|---|---|
-| `get_patient_profile` | `POST /mcp/v1/tools/call` | Retrieve patient demographics, medications, allergies |
-| `analyze_vitals` | `POST /mcp/v1/tools/call` | Analyze BP, HR, SpO₂ with risk classification |
-| `schedule_care_action` | `POST /mcp/v1/tools/call` | Schedule medication reminders and care actions |
-| `trigger_emergency_protocol` | `POST /mcp/v1/tools/call` | Activate EMS dispatch + caregiver alerts |
+| `analyze_vitals` | `systolic`, `diastolic`, `heart_rate`, `sp_o2` | Analyze BP, HR, SpO₂ with risk classification |
+| `schedule_care_action` | `action_type`, `details`, `schedule_time` | Schedule medication reminders and care actions |
+| `trigger_emergency_protocol` | `reason`, `patient_location` | Activate EMS dispatch + caregiver alerts |
+| `get_patient_profile` | `patient_id` | Retrieve patient demographics, medications, allergies |
 
-**Protocol:** `MCP v2025-11-25 · Streamable HTTP · JSON-RPC`
-**Manifest:** `GET /mcp/v1/tools`
+**Protocol:** `MCP v2025-11-25 · Streamable HTTP · JSON-RPC 2.0`  
+**JSON-RPC Endpoint:** `POST /mcp`  
+**REST Manifest:** `GET /mcp/v1/tools`
+
+### Official MCP JSON-RPC 2.0 Testing (`/mcp`)
+
+#### 1. Handshake (`initialize`)
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize"
+  }'
+```
+
+#### 2. Discover Tools (`tools/list`)
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list"
+  }'
+```
+
+#### 3. Execute Tool (`tools/call`)
+```bash
+curl -X POST http://localhost:8000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "analyze_vitals",
+      "arguments": {
+        "systolic": 140,
+        "diastolic": 90,
+        "heart_rate": 95,
+        "sp_o2": 97
+      }
+    }
+  }'
+```
 
 ---
 
@@ -146,3 +191,7 @@ Copyright (c) 2026 Shashwat Pandey
 *Alexa+ LifeOps — Because health care should be voice-first, intelligent, and always available.*
 
 </div>
+
+---
+### ⚠️ Medical & Simulation Disclaimer
+Alexa+ LifeOps is a simulated concept demonstration built exclusively for the Amazon Developer — Build, Ship, Shape Hackathon 2026. It is NOT a certified medical device and is NOT intended for primary clinical diagnosis, critical patient monitoring, or real-world emergency dispatch. All triage outcomes, reminders, and alerts are simulated locally.

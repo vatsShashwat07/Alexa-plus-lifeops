@@ -247,56 +247,76 @@ def _bedrock_converse(user_query: str) -> dict:
     tool_called: str = ""
     tool_params: dict = {}
     tool_result: dict = {}
+    all_tools_executed: list[dict] = []
+    max_tool_iterations = 6
+    iteration = 0
 
-    # ── Handle tool_use ──────────────────────────────────────────────────
-    if stop_reason == "tool_use":
-        # Extract the first tool-use block from the assistant response
-        tool_use_block = next(
-            (blk for blk in assistant_msg["content"] if "toolUse" in blk),
-            None,
-        )
-        if tool_use_block:
-            tool_use = tool_use_block["toolUse"]
-            tool_called = tool_use["name"]
-            tool_params = tool_use.get("input", {})
-            tool_id = tool_use["toolUseId"]
+    # ── Multi-turn tool execution loop (stopReason == "tool_use") ────────
+    while stop_reason == "tool_use" and iteration < max_tool_iterations:
+        iteration += 1
+        tool_results_content = []
 
-            logger.info("Bedrock requested tool: %s(%s)", tool_called, tool_params)
-            tool_result = _execute_tool(tool_called, tool_params)
+        # Find all toolUse blocks in this assistant message
+        for blk in assistant_msg.get("content", []):
+            if "toolUse" in blk:
+                tool_use = blk["toolUse"]
+                t_name = tool_use["name"]
+                t_params = tool_use.get("input", {})
+                t_id = tool_use["toolUseId"]
 
-            # Feed tool result back
-            messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "toolResult": {
-                                "toolUseId": tool_id,
-                                "content": [{"json": tool_result}],
-                            },
+                logger.info("Bedrock requested tool [%d]: %s(%s)", iteration, t_name, t_params)
+                t_result = _execute_tool(t_name, t_params)
+
+                tool_called = t_name
+                tool_params = t_params
+                tool_result = t_result
+                all_tools_executed.append({
+                    "name": t_name,
+                    "params": t_params,
+                    "result": t_result,
+                })
+
+                tool_results_content.append(
+                    {
+                        "toolResult": {
+                            "toolUseId": t_id,
+                            "content": [{"json": t_result}],
                         },
-                    ],
-                },
-            )
+                    }
+                )
 
-            # ── Second Converse call (final answer) ──────────────────────
-            response = bedrock.converse(
-                modelId=MODEL_ID,
-                system=[{"text": SYSTEM_PROMPT}],
-                messages=messages,
-                toolConfig=TOOL_CONFIG,
-            )
-            assistant_msg = response["output"]["message"]
+        if not tool_results_content:
+            break
+
+        # Feed tool result(s) back into conversation history
+        messages.append(
+            {
+                "role": "user",
+                "content": tool_results_content,
+            }
+        )
+
+        # Subsequent Converse call
+        response = bedrock.converse(
+            modelId=MODEL_ID,
+            system=[{"text": SYSTEM_PROMPT}],
+            messages=messages,
+            toolConfig=TOOL_CONFIG,
+        )
+        stop_reason = response["stopReason"]
+        assistant_msg = response["output"]["message"]
+        messages.append(assistant_msg)
 
     # ── Extract final speech text ────────────────────────────────────────
     alexa_speech = " ".join(
-        blk["text"] for blk in assistant_msg["content"] if "text" in blk
+        blk["text"] for blk in assistant_msg.get("content", []) if "text" in blk
     ).strip()
 
     return {
         "tool_called": tool_called,
         "tool_parameters": tool_params,
         "tool_result": tool_result,
+        "tools_executed": all_tools_executed,
         "alexa_speech": alexa_speech,
         "engine": "AWS-Bedrock-Converse",
     }
@@ -573,6 +593,18 @@ def _rule_based_evaluator(user_query: str) -> dict:
         "action_type": action_type,
         "engine": "RuleBasedEngine",
     }
+
+
+class LocalClinicalEvaluator:
+    """Deterministic local clinical evaluation engine (RuleBasedEngine)."""
+
+    @classmethod
+    def evaluate(cls, user_query: str) -> dict:
+        """Evaluate user query deterministically via the rule-based clinical engine."""
+        return _rule_based_evaluator(user_query)
+
+    def __call__(self, user_query: str) -> dict:
+        return _rule_based_evaluator(user_query)
 
 
 # ── Public Entry Point ──────────────────────────────────────────────────────
