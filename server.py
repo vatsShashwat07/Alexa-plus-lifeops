@@ -91,6 +91,36 @@ class AlexaInteractRequest(BaseModel):
     prompt: str
 
 
+def is_origin_allowed(origin: str | None) -> bool:
+    """Validate Origin header against localhost/[::1] and ALLOWED_ORIGINS env.
+
+    Requests without an Origin header pass.
+    """
+    if not origin:
+        return True
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(origin)
+        host = parsed.hostname or ""
+    except Exception:
+        return False
+
+    allowed_hosts = {"localhost", "127.0.0.1", "::1"}
+    env_origins = os.getenv("ALLOWED_ORIGINS", "")
+    for o in env_origins.split(","):
+        cleaned = o.strip()
+        if not cleaned:
+            continue
+        try:
+            o_parsed = urlparse(cleaned if "://" in cleaned else f"http://{cleaned}")
+            if o_parsed.hostname:
+                allowed_hosts.add(o_parsed.hostname.lower())
+        except Exception:
+            continue
+
+    return host.lower() in allowed_hosts
+
+
 # =============================================================================
 #  OFFICIAL MCP (2025-11-25 STREAMABLE HTTP) ENDPOINT
 # =============================================================================
