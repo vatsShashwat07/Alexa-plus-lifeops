@@ -13,20 +13,23 @@ import uuid
 
 # ── Patient Profile ──────────────────────────────────────────────────────────
 
-def get_patient_profile(user_id: str = "default_user") -> dict:
+def get_patient_profile(user_id: str = "default_user", patient_id: str | None = None) -> dict:
     """
     Retrieve a mock patient medical baseline for the given user.
 
     Args:
         user_id: Unique patient identifier. Defaults to ``"default_user"``.
+        patient_id: Optional alias for user_id per MCP specifications.
 
     Returns:
         A dictionary containing the patient's demographic snapshot,
         known allergies, active medications, resting vitals, and
         emergency contacts.
     """
+    effective_id = patient_id if patient_id is not None else user_id
     return {
-        "user_id": user_id,
+        "user_id": effective_id,
+        "patient_id": effective_id,
         "name": "Shashwat Mahajan",
         "age": 34,
         "sex": "Male",
@@ -228,8 +231,9 @@ def schedule_care_action(
 
 def trigger_emergency_protocol(
     reason: str,
-    vitals_summary: str,
+    vitals_summary: str = "Spot vitals unrecorded",
     severity: str = "CRITICAL",
+    patient_location: str = "Primary Residence",
 ) -> dict:
     """
     Escalate a health anomaly through the emergency-response pipeline.
@@ -240,9 +244,10 @@ def trigger_emergency_protocol(
     3. **Local alert** — on-device audible and visual alarm activation.
 
     Args:
-        reason:         Short description of the triggering event.
-        vitals_summary: Compact representation of the patient's current vitals.
-        severity:       Severity tag (default ``"CRITICAL"``).
+        reason:           Short description of the triggering event.
+        vitals_summary:   Compact representation of current vitals (default baseline).
+        severity:         Severity tag (default ``"CRITICAL"``).
+        patient_location: Current location of the patient.
 
     Returns:
         Composite status dict covering dispatch, SMS, and local alert outcomes.
@@ -253,6 +258,7 @@ def trigger_emergency_protocol(
         "incident_id": incident_id,
         "severity": severity,
         "reason": reason,
+        "patient_location": patient_location,
         "vitals_snapshot": vitals_summary,
         "dispatch_status": {
             "ems_notified": True,
@@ -263,6 +269,7 @@ def trigger_emergency_protocol(
             "recipients": ["+1-555-0101", "+1-555-0202"],
             "message": (
                 f"🚨 HEALTH ALERT [{severity}]: {reason}. "
+                f"Location: {patient_location}. "
                 f"Current vitals: {vitals_summary}. "
                 f"Incident ID: {incident_id}. "
                 "Emergency services have been contacted."
